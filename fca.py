@@ -2,6 +2,8 @@ import logging
 import os
 import re
 
+from apify_client import ApifyClient
+
 # from langchain_community.document_loaders.base import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import (DashScopeEmbeddings,
@@ -21,82 +23,84 @@ from langchain_core.vectorstores import VectorStoreRetriever
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 
-def search_engine_fetch_urls(kw: str,
-                             search_engine_name: str = 'Bing',
-                             k: int = 10):
-    logging.info(f'Getting URLs from {search_engine_name} search...')
+def fetch_urls(key_words: str,
+               search_engine_wrapper: str = 'Bing',
+               num_results: int = 10,
+               exclude_list: list[str] = [
+                   r'163\.com',
+                   r'ys80007\.com',
+                   r'wyzxwk\.com',
+                   r'bijie.gov.cn',
+                   r'yongxiu.gov.cn',
+               ]):
+    logging.info(f'Getting URLs from {search_engine_wrapper} search...')
 
-    if search_engine_name == 'Google' and k > 10:
+    if search_engine_wrapper == 'Google' and num_results > 10:
         logging.error(
             'GoogleSearchAPI only supports up to 10 resutls, try other engines like Bing/GoogleSerper.')
         return
 
-    if search_engine_name == 'Google':
-        search_engine = GoogleSearchAPIWrapper(k=k)
-    elif search_engine_name == 'GoogleSerper':
-        search_engine = GoogleSerperAPIWrapper(k=k)
-    elif search_engine_name == 'Bing':
-        search_engine = BingSearchAPIWrapper(k=k)
+    if search_engine_wrapper == 'Google':
+        search_engine = GoogleSearchAPIWrapper(k=num_results)
+    elif search_engine_wrapper == 'GoogleSerper':
+        search_engine = GoogleSerperAPIWrapper(k=num_results)
+    elif search_engine_wrapper == 'Bing':
+        search_engine = BingSearchAPIWrapper(k=num_results)
     else:
-        logging.error(f'Search engine {search_engine_name} not supported.')
+        logging.error(f'Search engine {search_engine_wrapper} not supported.')
         return
 
-    search_results = search_engine.results(kw, num_results=k)
-    if search_engine_name == 'GoogleSerper':
+    search_results = search_engine.results(key_words, num_results=num_results)
+    if search_engine_wrapper == 'GoogleSerper':
         urls = [item['link'] for item in search_results['organic']]
     else:
         urls = [item['link'] for item in search_results]
-    return urls
 
-
-def crawlable_url_filter(urls: list[str],
-                         exclude_list: list[str] = [
-                             r'163\.com',
-                             r'ys80007\.com',
-                             r'wyzxwk\.com',
-                             r'bijie.gov.cn',
-                             r'yongxiu.gov.cn',
-]):
-    logging.info('Removing URLs that cannot be crawled...')
-    urls_filterd = []
-    for u in urls:
-        inc_flag = True
-        for el in exclude_list:
-            if re.search(el, u):
-                inc_flag = False
+    urls_filtered = []
+    for url in urls:
+        include_flag = True
+        for exclude_pattern in exclude_list:
+            if re.search(exclude_pattern, url):
+                include_flag = False
                 break
-        if inc_flag:
-            urls_filterd.append(u)
-    return urls_filterd
+        if include_flag:
+            urls_filtered.append(url)
+    return [{'url': url} for url in urls_filtered]
 
 
-def apify_fetch_web_context(urls_filterd: list[str],
-                            crawler_type: str = 'cheerio',
-                            min_text_length: int = 50):
+def fetch_web_content(urls_filtered: list[str],
+                      crawler_type: str = 'cheerio',
+                      min_text_length: int = 50):
     logging.info('Getting detailed web content from each URL...')
 
-    apify = ApifyWrapper()
-    loader = apify.call_actor(
-        actor_id='apify/website-content-crawler',
-        run_input={'startUrls': [{'url': u} for u in urls_filterd],
-                   'crawlerType': crawler_type,
-                   'maxCrawlDepth': 0,
-                   'maxSessionRotations': 0,
-                   'proxyConfiguration': {'useApifyProxy': True},
-                   },
-        dataset_mapping_function=lambda item: Document(
-            page_content=item['text'] or '', metadata={'source': item['url']}
-        ),
-    )
-    docs = loader.load()
-    docs_filtered = [d for d in docs if len(d.page_content) >= min_text_length]
-    return docs_filtered
+    apify_client = ApifyClient(os.getenv('APIFY_API_TOKEN'))
+    actor_call = apify_client.actor('apify/website-content-crawler').call(
+        run_input={
+            'startUrls': urls_filtered,
+            'crawlerType': 'cheerio',
+            'maxCrawlDepth': 0,
+            'maxSessionRotations': 0,
+            'proxyConfiguration': {'useApifyProxy': True},
+        })
+    apify_dataset = apify_client.dataset(
+        actor_call['defaultDatasetId']).list_items().items
+
+    records = [rec for rec in apify_dataset if rec['crawl']['httpStatusCode'] < 300 
+            and len(rec['text']) >= min_text_length]
+    return records
 
 
-def split_docs(docs: list[Document],
-               chunk_size: int = 1000,
-               chunk_overlap: int = 100):
-    logging.info('Splitting documents into small chunks...')
+def vectorization_store(records: list[dict], 
+                        chunk_size: int = 1000, 
+                        chunk_overlap: int = 100, 
+                        embedding_provider: str = 'Alibaba'):
+    logging.info(f'Vectorizing documents into ChromaDB...')
+
+    docs = []
+    for rec in records:
+        doc = Document(page_content=rec['text'],
+                       metadata={'source': rec['url']})
+        docs.append(doc)
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
@@ -109,7 +113,7 @@ def vectorization(chunked_docs: list[Document],
                   embedding_provider: str = 'Alibaba',
                   vector_db_provider: str = 'FAISS'):
     logging.info(
-        f'Vectorizing documents into FAISS using embedding method provided by {embedding_provider}')
+        f'Vectorizing documents into ChromaDB using embedding method provided by {embedding_provider}')
     if embedding_provider == 'Alibaba':
         embedding = DashScopeEmbeddings()
     elif embedding_provider == 'Baidu':
@@ -157,12 +161,9 @@ def llm_qa(retriever: VectorStoreRetriever,
         logging.error(f'LLM provider {llm_provider} not supported.')
         return
 
-    def format_docs(docs: list[Document]):
-        return '\n\n'.join(doc.page_content for doc in docs)
-
     rag_prompt = PromptTemplate.from_template(general_qa_template)
     rag_chain = (
-        {'context': retriever | format_docs, 'question': RunnablePassthrough()}
+        {'context': retriever, 'question': RunnablePassthrough()}
         | rag_prompt
         | llm
         | StrOutputParser()
@@ -238,10 +239,10 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
         '''
         NOINFO = '没有相关信息'
 
-    urls = search_engine_fetch_urls(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
-                                    search_engine_name=SEARCH_ENGINE, k=N_NEWS)
-    urls_filterd = crawlable_url_filter(urls)
-    docs = apify_fetch_web_context(urls_filterd)
+    urls = fetch_urls(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
+                      search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
+    urls_filtered = crawlable_url_filter(urls)
+    docs = fetch_web_content(urls_filtered)
     chunked_docs = split_docs(docs)
     vector_db = vectorization(
         chunked_docs, embedding_provider=EMBEDDING_PROVIDER)

@@ -1,0 +1,8 @@
+**/__pycache__
+**/test.py
+.idea
+*.py[cod]
+*.log
+*.pdf
+env.sh
+nohup.out
