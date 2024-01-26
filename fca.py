@@ -4,8 +4,10 @@ import re
 import uuid
 
 import chromadb
-from apify_client import ApifyClient
 from chromadb.config import Settings
+
+from apify_client import ApifyClient
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.llms import QianfanLLMEndpoint, Tongyi
@@ -221,7 +223,6 @@ Helpful Answer:
 What is the negative news about {COMPANY_NAME}? 
 Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 '''
-        NOINFO = 'No relevant information'
     elif LANG == 'zh':
         SEARCH_SUFFIX = '负面新闻'
         QA_TEMPLATE = '''
@@ -236,8 +237,7 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 '''
         QUERY = f'''
 {COMPANY_NAME}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出。
-        '''
-        NOINFO = '没有相关信息'
+'''
 
     urls = fetch_urls(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
                       search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
