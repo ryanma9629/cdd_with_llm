@@ -1,26 +1,23 @@
 import logging
 import os
 import re
+import uuid
 
+import chromadb
 from apify_client import ApifyClient
-
-# from langchain_community.document_loaders.base import Document
+from chromadb.config import Settings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import (DashScopeEmbeddings,
-                                            QianfanEmbeddingsEndpoint)
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.llms import QianfanLLMEndpoint, Tongyi
-from langchain_community.utilities import (ApifyWrapper, BingSearchAPIWrapper,
+from langchain_community.utilities import (BingSearchAPIWrapper,
                                            GoogleSearchAPIWrapper,
                                            GoogleSerperAPIWrapper)
-from langchain_community.vectorstores import VectorStore
 from langchain_community.vectorstores.chroma import Chroma
-from langchain_community.vectorstores.faiss import FAISS
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langchain_core.vectorstores import VectorStoreRetriever
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 
 
 def fetch_urls(key_words: str,
@@ -31,8 +28,7 @@ def fetch_urls(key_words: str,
                    r'ys80007\.com',
                    r'wyzxwk\.com',
                    r'bijie.gov.cn',
-                   r'yongxiu.gov.cn',
-               ]):
+                   r'yongxiu.gov.cn']):
     logging.info(f'Getting URLs from {search_engine_wrapper} search...')
 
     if search_engine_wrapper == 'Google' and num_results > 10:
@@ -68,6 +64,9 @@ def fetch_urls(key_words: str,
     return [{'url': url} for url in urls_filtered]
 
 
+# urls_filtered = fetch_urls('IBM', num_results=5)
+
+
 def fetch_web_content(urls_filtered: list[str],
                       crawler_type: str = 'cheerio',
                       min_text_length: int = 50):
@@ -77,7 +76,7 @@ def fetch_web_content(urls_filtered: list[str],
     actor_call = apify_client.actor('apify/website-content-crawler').call(
         run_input={
             'startUrls': urls_filtered,
-            'crawlerType': 'cheerio',
+            'crawlerType': crawler_type,
             'maxCrawlDepth': 0,
             'maxSessionRotations': 0,
             'proxyConfiguration': {'useApifyProxy': True},
@@ -85,15 +84,19 @@ def fetch_web_content(urls_filtered: list[str],
     apify_dataset = apify_client.dataset(
         actor_call['defaultDatasetId']).list_items().items
 
-    records = [rec for rec in apify_dataset if rec['crawl']['httpStatusCode'] < 300 
-            and len(rec['text']) >= min_text_length]
+    records = [rec for rec in apify_dataset if rec['crawl']['httpStatusCode'] < 300
+               and len(rec['text']) >= min_text_length]
     return records
 
 
-def vectorization_store(records: list[dict], 
-                        chunk_size: int = 1000, 
-                        chunk_overlap: int = 100, 
-                        embedding_provider: str = 'Alibaba'):
+# records = fetch_web_content(urls_filtered)
+
+
+def vectorization_store(records: list[dict],
+                        key_words: str,
+                        chunk_size: int = 1000,
+                        chunk_overlap: int = 100,
+                        persistent_dir = './chroma'):
     logging.info(f'Vectorizing documents into ChromaDB...')
 
     docs = []
@@ -106,52 +109,52 @@ def vectorization_store(records: list[dict],
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
     )
-    return splitter.split_documents(docs)
+    chunked_docs = splitter.split_documents(docs)
 
+    client = chromadb.PersistentClient(
+        path=persistent_dir,
+        settings=Settings(anonymized_telemetry=False))
 
-def vectorization(chunked_docs: list[Document],
-                  embedding_provider: str = 'Alibaba',
-                  vector_db_provider: str = 'FAISS'):
-    logging.info(
-        f'Vectorizing documents into ChromaDB using embedding method provided by {embedding_provider}')
-    if embedding_provider == 'Alibaba':
-        embedding = DashScopeEmbeddings()
-    elif embedding_provider == 'Baidu':
-        embedding = QianfanEmbeddingsEndpoint()
-    elif embedding_provider == 'OpenAI':
-        embedding = OpenAIEmbeddings()
-    else:
-        logging.error(
-            f'Embedding provider {embedding_provider} not supported.')
-        return
+    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, key_words).hex
 
-    if vector_db_provider == 'FAISS':
-        vector_db = FAISS
-    elif vector_db_provider == 'Chroma':
-        vector_db = Chroma
-
-    vector_store = vector_db.from_documents(
-        documents=chunked_docs,
-        embedding=embedding,
+    langchain_chroma = Chroma(
+        collection_name,
+        embedding_function=HuggingFaceEmbeddings(),
+        client=client
     )
-    # vector_db.save_local(local_index_name)
-    return vector_store
+
+    ids = langchain_chroma.add_documents(chunked_docs)
+    logging.info(
+        f'{len(ids)} documents were added into collection {collection_name}')
+
+    return collection_name
 
 
-def retriever(vector_db: VectorStore,
-              search_type: str = 'mmr',
-              search_args: dict[str, float] = {'k': 3, 'fetch_k': 5}):
-    logging.info('Generating maximal-marginal-relevance retriever...')
-    return vector_db.as_retriever(search_type=search_type, search_kwargs=search_args)
+# collection_name = vectorization_store(records, 'IBM')
 
 
-def llm_qa(retriever: VectorStoreRetriever,
-           general_qa_template: str,
-           query: str,
-           llm_provider: str = 'Alibaba'):
+def qa_over_docs(collection_name: str,
+                 general_qa_template: str,
+                 query: str,
+                 persistent_dir = './chroma',
+                 llm_provider: str = 'Alibaba'):
+    client = chromadb.PersistentClient(
+        path=persistent_dir,
+        settings=Settings(anonymized_telemetry=False))
+
+    langchain_chroma = Chroma(
+        collection_name,
+        embedding_function=HuggingFaceEmbeddings(),
+        client=client
+    )
+
+    mmr_retriever = langchain_chroma.as_retriever(
+        search_type='mmr',
+        search_kwargs={'k': 3, 'fetch_k': 5}
+    )
+
     logging.info(f'Documents QA using LLM provied by {llm_provider}...')
     if llm_provider == 'Alibaba':
-
         llm = Tongyi(model_name='qwen-max', temperature=0)
     elif llm_provider == 'Baidu':
         llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
@@ -163,16 +166,22 @@ def llm_qa(retriever: VectorStoreRetriever,
 
     rag_prompt = PromptTemplate.from_template(general_qa_template)
     rag_chain = (
-        {'context': retriever, 'question': RunnablePassthrough()}
+        {'context': mmr_retriever, 'question': RunnablePassthrough()}
         | rag_prompt
         | llm
         | StrOutputParser()
     )
     try:
         answer = rag_chain.invoke(query)
-        return answer
+        return {
+            'query': query,
+            'answer': answer
+        }
     except ValueError:  # Occurs when there is no relevant information
-        return
+        return {
+            'query': query,
+            'answer': 'I don\'t know.'
+        }
 
 
 if __name__ == '__main__':
@@ -181,9 +190,9 @@ if __name__ == '__main__':
 
     # Proj settings
     # COMPANY_NAME = 'Rothenberg Ventures Management Company, LLC.'
-    # COMPANY_NAME = '红岭创投'
+    COMPANY_NAME = '红岭创投'
     # COMPANY_NAME = '恒大财富'
-    COMPANY_NAME = '鸿博股份'
+    # COMPANY_NAME = '鸿博股份'
     # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
     # COMPANY_NAME = 'BridgeWater Fund'
@@ -194,12 +203,10 @@ if __name__ == '__main__':
     LANG = 'zh'  # {'zh', 'en'}
     SEARCH_ENGINE = 'Bing'  # {'Bing', 'Google', 'GoogleSerper'}
     LLM_PROVIDER = 'Alibaba'  # {'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'}
-    # {'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'}
-    EMBEDDING_PROVIDER = 'Alibaba'
 
     if LANG == 'en':
         SEARCH_SUFFIX = 'negative news'
-        TEMPLATE = '''
+        QA_TEMPLATE = '''
 Use the following pieces of context to answer the question at the end.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 Use five sentences maximum and keep the answer as concise as possible.
@@ -210,10 +217,6 @@ Question: {question}
 
 Helpful Answer:
 '''
-        # QUERY = '''
-        # Whether this company is suspected of financial crimes?
-        # If it is suspected, What is the evidence of the crime in question?
-        # '''
         QUERY = f'''
 What is the negative news about {COMPANY_NAME}? 
 Summarize no more than 3 major ones, and itemizing each one in a seperate line.
@@ -221,7 +224,7 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
         NOINFO = 'No relevant information'
     elif LANG == 'zh':
         SEARCH_SUFFIX = '负面新闻'
-        TEMPLATE = '''
+        QA_TEMPLATE = '''
 利用下列信息回答后面的问题。如果你不知道答案就直接回答'不知道'，不要主观编造答案。
 最多使用五句话，回答尽量简洁。
 
@@ -231,9 +234,6 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 
 有价值的回答：
 '''
-        # QUERY = '''
-        # 这家公司是否涉嫌金融犯罪？如果涉嫌，相关犯罪证据是什么？
-        # '''
         QUERY = f'''
 {COMPANY_NAME}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出。
         '''
@@ -241,18 +241,15 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 
     urls = fetch_urls(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
                       search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
-    urls_filtered = crawlable_url_filter(urls)
-    docs = fetch_web_content(urls_filtered)
-    chunked_docs = split_docs(docs)
-    vector_db = vectorization(
-        chunked_docs, embedding_provider=EMBEDDING_PROVIDER)
-    mmr_retriever = retriever(vector_db)
-    answer = llm_qa(mmr_retriever, general_qa_template=TEMPLATE,
-                    query=QUERY, llm_provider=LLM_PROVIDER)
+
+    records = fetch_web_content(urls)
+
+    collection_name = vectorization_store(
+        records, f'{COMPANY_NAME} {SEARCH_SUFFIX}')
+
+    qa = qa_over_docs(collection_name, QA_TEMPLATE, QUERY)
+
     print('-' * 80)
-    print(QUERY)
+    print(qa['query'])
     print('-' * 80)
-    if answer is None:
-        print(NOINFO)
-    else:
-        print(answer)
+    print(qa['answer'])

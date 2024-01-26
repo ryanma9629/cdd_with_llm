@@ -1,5 +1,6 @@
 **/__pycache__
 **/test.py
+/chroma
 .idea
 *.py[cod]
 *.log
