@@ -1,7 +1,12 @@
 import logging
 import os
+import sys
 import re
 import uuid
+
+if os.platform == 'linux':
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 from apify_client import ApifyClient
 import chromadb
