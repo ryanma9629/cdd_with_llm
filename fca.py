@@ -10,11 +10,13 @@ if sys.platform == 'linux':
 
 import chromadb
 from chromadb.config import Settings
+import chromadb.utils.embedding_functions as embedding_functions
 
 from apify_client import ApifyClient
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
 from langchain_community.llms import QianfanLLMEndpoint, Tongyi
 from langchain_community.utilities import (BingSearchAPIWrapper,
                                            GoogleSearchAPIWrapper,
@@ -99,12 +101,60 @@ def fetch_web_content(urls_filtered: list[str],
 # records = fetch_web_content(urls_filtered)
 
 
+# def vectorization_store(records: list[dict],
+#                         key_words: str,
+#                         persistent_dir = './chroma'):
+#     logging.info(f'Vectorizing documents into ChromaDB...')
+    
+#     persistent_client = chromadb.PersistentClient(
+#         path=persistent_dir,
+#         settings=Settings(anonymized_telemetry=False)
+#     )
+#     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, key_words).hex
+    
+#     huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
+#         api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
+#         model_name='sentence-transformers/all-MiniLM-L6-v2'
+#     )
+#     collection = persistent_client.get_or_create_collection(
+#         collection_name,
+#         embedding_function=huggingface_ef
+#     )
+#     collection.upsert(
+#         ids=[item['url'] for item in records],
+#         documents=[item['text'] for item in records],
+#         metadatas=[{'source': item['url']} for item in records]
+#     )
+
+#     return collection_name
+
+# vectorization_store(records, key_words="IBM")
+
+# def mmr_retriever(key_words: str, 
+#               chunk_size = 1000,
+#               chunk_overlap = 100,
+#               persistent_dir = './chroma'):
+#     persistent_client = chromadb.PersistentClient(
+#         path=persistent_dir,
+#         settings=Settings(anonymized_telemetry=False)
+#     )
+#     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, key_words).hex
+#     embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+#     langchain_chroma=Chroma(
+#         collection_name,
+#         client=persistent_client,
+#         embedding_function=
+#     )
+
+
 def vectorization_store(records: list[dict],
                         key_words: str,
                         chunk_size: int = 1000,
                         chunk_overlap: int = 100,
                         persistent_dir = './chroma'):
     logging.info(f'Vectorizing documents into ChromaDB...')
+    
+
 
     docs = []
     for rec in records:
