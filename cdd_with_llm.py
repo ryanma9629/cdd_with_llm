@@ -12,18 +12,17 @@ import chromadb
 from apify_client import ApifyClient
 from chromadb.config import Settings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import (DashScopeEmbeddings,
-                                            HuggingFaceEmbeddings)
-from langchain_community.llms import QianfanLLMEndpoint, Tongyi
+# from langchain_community.embeddings import DashScopeEmbeddings, HuggingFaceEmbeddings
+# from langchain_community.llms import QianfanLLMEndpoint, Tongyi
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureOpenAI, AzureChatOpenAI, AzureOpenAIEmbeddings
 
 
 def web_search(company_name: str,
@@ -40,7 +39,8 @@ def web_search(company_name: str,
     elif search_engine_wrapper == 'Bing':
         search_engine = BingSearchAPIWrapper(k=num_results)
     else:
-        logging.error(f'Search engine {search_engine_wrapper} is not supported.')
+        logging.error(
+            f'Search engine {search_engine_wrapper} is not supported.')
         return
 
     raw_search_results = search_engine.results(company_name + search_suffix,
@@ -85,6 +85,8 @@ def fetch_web_content(urls: list[str],
 
 def doc_store(records: list[dict],
               company_name: str):
+    
+    logging.info('Storing fetched documents into Chroma...')
     persistent_client = chromadb.PersistentClient(
         path='./chroma',
         settings=Settings(anonymized_telemetry=False)
@@ -117,7 +119,7 @@ def qa_over_docs(
         collection_name: str,
         query: str,
         qa_template: str,
-        llm_provider: str = 'Alibaba'
+        # llm_provider: str = 'Azure OpenAI'
 ):
     persistent_client = chromadb.PersistentClient(
         path='./chroma',
@@ -141,6 +143,7 @@ def qa_over_docs(
             page_content=chroma_docs['documents'][i], metadata=chroma_docs['metadatas'][i])
         langchain_docs.append(langchain_doc)
 
+    logging.info('Splitting documents into small chunks...')
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=100,
@@ -151,7 +154,9 @@ def qa_over_docs(
         collection_name='Ephemeral_Collection_for_QA',
         client_settings=Settings(anonymized_telemetry=False),
         # embedding_function=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-        embedding_function=DashScopeEmbeddings()
+        # embedding_function=DashScopeEmbeddings()
+        embedding_function=AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv('AZURE_OPENAI_EMB_DEPLOY'))
     )
 
     langchain_chroma.add_documents(chunked_docs)
@@ -161,22 +166,26 @@ def qa_over_docs(
         search_kwargs={'k': 3, 'fetch_k': 5}
     )
 
-    logging.info(f'Documents QA using LLM provied by {llm_provider}...')
-    if llm_provider == 'Alibaba':
-        llm = Tongyi(model_name='qwen-max', temperature=0)
-    elif llm_provider == 'Baidu':
-        llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
-    elif llm_provider == 'OpenAI':
-        llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
-    else:
-        logging.error(f'LLM provider {llm_provider} is not supported.')
-        return
+    logging.info(f'Documents QA using LLM provied by Azure OpenAI...')
+    # if llm_provider == 'Alibaba':
+    #     llm = Tongyi(model_name='qwen-max', temperature=0)
+    # elif llm_provider == 'Baidu':
+    #     llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
+    # elif llm_provider == 'OpenAI':
+    #     llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
+    # else:
+    #     logging.error(f'LLM provider {llm_provider} is not supported.')
+    #     return
 
-    rag_prompt = PromptTemplate.from_template(qa_template)
+    # llm = AzureOpenAI(azure_deployment='gpt4')
+    chat_llm = AzureChatOpenAI(
+        azure_deployment=os.getenv('AZURE_OPENAI_LLM_DEPLOY'))
+    # rag_prompt = PromptTemplate.from_template(qa_template)
+    rag_prompt = ChatPromptTemplate.from_template(qa_template)
     rag_chain = (
         {'context': mmr_retriever, 'question': RunnablePassthrough()}
         | rag_prompt
-        | llm
+        | chat_llm
         | StrOutputParser()
     )
     try:
@@ -199,19 +208,19 @@ if __name__ == '__main__':
     # Proj settings
     # COMPANY_NAME = 'Rothenberg Ventures Management Company, LLC.'
     # COMPANY_NAME = '红岭创投'
-    # COMPANY_NAME = '东方甄选'
+    COMPANY_NAME = '东方甄选'
     # COMPANY_NAME = '恒大财富'
     # COMPANY_NAME = '鸿博股份'
-    COMPANY_NAME = '平安银行'
+    # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
-    # COMPANY_NAME = 'BridgeWater Fund'
+    # COMPANY_NAME = 'Bridge Water'
     # COMPANY_NAME = 'SAS Institute'
     # COMPANY_NAME = 'Apple Inc.'
 
     N_NEWS = 10
     LANG = 'zh'  # {'zh', 'en'}
     SEARCH_ENGINE = 'Bing'  # {'Bing', 'Google', 'GoogleSerper'}
-    LLM_PROVIDER = 'Alibaba'  # {'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'}
+    # LLM_PROVIDER = 'Alibaba'  # {'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'}
 
     if LANG == 'en':
         SEARCH_SUFFIX = 'negative news'
