@@ -156,12 +156,15 @@ async def fetch_and_store(company_name: str,
 
     return sas_json_wrapper(data=search_results)
 
+class QAInput(BaseModel):
+    company_name: str
+    qa_template: str = QA_TEMPLATE
+    query: str = QUERY
+    llm_provider: str = 'Alibaba'
 
-@app.get('/cdd_with_llm/qa_over_docs')
-async def qa_over_docs(company_name: str,
-                       qa_template: str = QA_TEMPLATE,
-                       query: str = QUERY,
-                       llm_provider: str = 'Alibaba'):
+
+@app.post('/cdd_with_llm/qa_over_docs')
+async def qa_over_docs(qa_input: QAInput):
     
     persistent_client = chromadb.PersistentClient(
         path=CHROMA_PERSISTENT_DIR,
@@ -171,7 +174,7 @@ async def qa_over_docs(company_name: str,
     #     api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
     #     model_name='sentence-transformers/all-MiniLM-L6-v2'
     # )
-    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, qa_input.company_name).hex
     try:
         collection = persistent_client.get_collection(collection_name)
     except ValueError:
@@ -206,18 +209,18 @@ async def qa_over_docs(company_name: str,
         search_kwargs={'k': 3, 'fetch_k': 5}
     )
 
-    logging.info(f'Documents QA using LLM provied by {llm_provider}...')
-    if llm_provider == 'Alibaba':
+    logging.info(f'Documents QA using LLM provied by {qa_input.llm_provider}...')
+    if qa_input.llm_provider == 'Alibaba':
         llm = Tongyi(model_name='qwen-max', temperature=0)
-    elif llm_provider == 'Baidu':
+    elif qa_input.llm_provider == 'Baidu':
         llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
-    elif llm_provider == 'OpenAI':
+    elif qa_input.llm_provider == 'OpenAI':
         llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
     else:
-        logging.error(f'LLM provider {llm_provider} is not supported.')
+        logging.error(f'LLM provider {qa_input.llm_provider} is not supported.')
         return
 
-    rag_prompt = PromptTemplate.from_template(qa_template)
+    rag_prompt = PromptTemplate.from_template(qa_input.qa_template)
     rag_chain = (
         {'context': mmr_retriever, 'question': RunnablePassthrough()}
         | rag_prompt
@@ -226,14 +229,14 @@ async def qa_over_docs(company_name: str,
     )
 
     try:
-        answer = rag_chain.invoke(query)
+        answer = rag_chain.invoke(qa_input.query)
         qa = {
-            'query': query,
+            'query': qa_input.query,
             'answer': answer
         }
     except ValueError:  # Occurs when there is no relevant information
         qa = {
-            'query': query,
+            'query': qa_input.query,
             'answer': IDONTKNOW
         }
 
