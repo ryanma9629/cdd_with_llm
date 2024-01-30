@@ -1,16 +1,19 @@
 import logging
 import os
 import sys
-# import re
-import uuid
-
 if sys.platform == 'linux':
     __import__('pysqlite3')
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
+import uuid
+from typing import Union, List, Dict
+
+
 import chromadb
-from apify_client import ApifyClient
 from chromadb.config import Settings
+
+from apify_client import ApifyClient
+
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # from langchain_community.embeddings import DashScopeEmbeddings, HuggingFaceEmbeddings
 # from langchain_community.llms import QianfanLLMEndpoint, Tongyi
@@ -26,26 +29,44 @@ from langchain_openai import ChatOpenAI, AzureOpenAI, AzureChatOpenAI, AzureOpen
 
 
 def web_search(company_name: str,
-               search_suffix: str = ' negative news',
-               search_engine_wrapper: str = 'Bing',
+               search_suffix: Union[str, None] = None,
+               search_engine: str = 'Bing',  # 'Bing', 'Google'
                num_results: int = 10,
+               lang: str = 'zh-CN',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US'
                ):
-    logging.info(f'Getting URLs from {search_engine_wrapper} search...')
+    logging.info(f'Getting URLs from {search_engine} search...')
 
-    if search_engine_wrapper == 'Google':
-        search_engine = GoogleSearchAPIWrapper(k=num_results)
-    elif search_engine_wrapper == 'GoogleSerper':
-        search_engine = GoogleSerperAPIWrapper(k=num_results)
-    elif search_engine_wrapper == 'Bing':
-        search_engine = BingSearchAPIWrapper(k=num_results)
+    if search_engine == 'Google':
+        if lang == 'zh-CN':
+            langchain_se = GoogleSerperAPIWrapper(
+                k=num_results, gl='cn', hl='zh-cn')
+        elif lang == 'zh-HK':
+            langchain_se = GoogleSerperAPIWrapper(
+                k=num_results, gl='hk', hl='zh-tw')
+        elif lang == 'zh-TW':
+            langchain_se = GoogleSerperAPIWrapper(
+                k=num_results, gl='tw', hl='zh-tw')
+        else:
+            langchain_se = GoogleSerperAPIWrapper(k=num_results)
+    elif search_engine == 'Bing':
+        langchain_se = BingSearchAPIWrapper(
+            k=num_results, search_kwargs={'mkt': lang})
     else:
         logging.error(
-            f'Search engine {search_engine_wrapper} is not supported.')
+            f'Search engine {search_engine} is not supported.')
         return
 
-    raw_search_results = search_engine.results(company_name + search_suffix,
-                                               num_results=num_results)
-    if search_engine_wrapper == 'GoogleSerper':
+    if search_suffix is None:
+        if lang == 'zh-CN':
+            search_suffix = '负面新闻'
+        elif lang == 'zh-TW' or lang == 'zh-HK':
+            search_suffix = '負面新聞'
+        else:
+            search_suffix = 'negative news'
+
+    raw_search_results = langchain_se.results(company_name + ' ' + search_suffix,
+                                              num_results=num_results)
+    if search_engine == 'Google':
         raw_search_results = raw_search_results['organic']
 
     search_results = [{'title': item['title'], 'snippet': item['snippet'],
@@ -57,7 +78,7 @@ def web_search(company_name: str,
 # search_results = web_search('Bridge Water', num_results=15)
 
 
-def fetch_web_content(urls: list[str],
+def fetch_web_content(urls: List[str],
                       min_text_length: int = 100):
     logging.info('Getting detailed web content from each URL...')
 
@@ -83,9 +104,9 @@ def fetch_web_content(urls: list[str],
 # records = fetch_web_content([item['url'] for item in search_results])
 
 
-def doc_store(records: list[dict],
+def doc_store(records: List[dict],
               company_name: str):
-    
+
     logging.info('Storing fetched documents into Chroma...')
     persistent_client = chromadb.PersistentClient(
         path='./chroma',
@@ -93,19 +114,14 @@ def doc_store(records: list[dict],
     )
     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
 
-    # huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
-    #     api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
-    #     model_name='sentence-transformers/all-MiniLM-L6-v2'
-    # )
     collection = persistent_client.get_or_create_collection(
         collection_name,
-        # embedding_function=huggingface_ef
     )
     collection.upsert(
         ids=[item['url'] for item in records],
         documents=[item['text'] for item in records],
         metadatas=[{'source': item['url']} for item in records],
-        # Fake embedding, only for raw doc storage
+        # Fake embeddings, only for raw doc storage
         embeddings=[[0]] * len(records)
     )
 
@@ -133,7 +149,7 @@ def qa_over_docs(
     try:
         collection = persistent_client.get_collection(collection_name)
     except ValueError:
-        logging.error('Collection does not exist.')
+        logging.error(f'Collection {collection_name} does not exist.')
 
     chroma_docs = collection.get()
 
@@ -256,7 +272,7 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 '''
 
     search_results = web_search(
-        COMPANY_NAME, search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
+        COMPANY_NAME, search_engine=SEARCH_ENGINE, num_results=N_NEWS)
 
     records = fetch_web_content([item['url'] for item in search_results])
 
