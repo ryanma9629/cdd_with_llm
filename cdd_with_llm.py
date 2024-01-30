@@ -18,9 +18,9 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
 from langchain_community.llms import QianfanLLMEndpoint, Tongyi
-from langchain_community.utilities import (BingSearchAPIWrapper,
-                                           GoogleSearchAPIWrapper,
-                                           GoogleSerperAPIWrapper)
+from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
+from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
+from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -29,21 +29,12 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI
 
 
-def fetch_urls(key_words: str,
+def web_search(company_name: str,
+               search_suffix: str = ' negative news',
                search_engine_wrapper: str = 'Bing',
                num_results: int = 10,
-               exclude_list: list[str] = [
-                   r'163\.com',
-                   r'ys80007\.com',
-                   r'wyzxwk\.com',
-                   r'bijie.gov.cn',
-                   r'yongxiu.gov.cn']):
+):
     logging.info(f'Getting URLs from {search_engine_wrapper} search...')
-
-    if search_engine_wrapper == 'Google' and num_results > 10:
-        logging.error(
-            'GoogleSearchAPI only supports up to 10 resutls, try other engines like Bing/GoogleSerper.')
-        return
 
     if search_engine_wrapper == 'Google':
         search_engine = GoogleSearchAPIWrapper(k=num_results)
@@ -55,80 +46,100 @@ def fetch_urls(key_words: str,
         logging.error(f'Search engine {search_engine_wrapper} not supported.')
         return
 
-    search_results = search_engine.results(key_words, num_results=num_results)
+    raw_search_results = search_engine.results(company_name + search_suffix, 
+                                           num_results=num_results)
     if search_engine_wrapper == 'GoogleSerper':
-        urls = [item['link'] for item in search_results['organic']]
-    else:
-        urls = [item['link'] for item in search_results]
+        raw_search_results = raw_search_results['organic']
 
-    urls_filtered = []
-    for url in urls:
-        include_flag = True
-        for exclude_pattern in exclude_list:
-            if re.search(exclude_pattern, url):
-                include_flag = False
-                break
-        if include_flag:
-            urls_filtered.append(url)
-    return [{'url': url} for url in urls_filtered]
+    search_results = [{'title': item['title'], 'snippet': item['snippet'],
+                       'url': item['link']} for item in raw_search_results]
+    
+    return search_results
+
+search_results = web_search('Bridge Water', num_results=5)
 
 
-# urls_filtered = fetch_urls('IBM', num_results=5)
-
-
-def fetch_web_content(urls_filtered: list[str],
-                      crawler_type: str = 'cheerio',
-                      min_text_length: int = 50):
+def fetch_web_content(urls: list[str],
+                      min_text_length: int = 100):
     logging.info('Getting detailed web content from each URL...')
 
     apify_client = ApifyClient(os.getenv('APIFY_API_TOKEN'))
     actor_call = apify_client.actor('apify/website-content-crawler').call(
         run_input={
-            'startUrls': urls_filtered,
-            'crawlerType': crawler_type,
+            'startUrls': [{'url': url} for url in urls],
+            'crawlerType': 'cheerio',
             'maxCrawlDepth': 0,
             'maxSessionRotations': 0,
+            'maxRequestRetries': 1,
+            'readableTextCharThreshold': min_text_length,
             'proxyConfiguration': {'useApifyProxy': True},
         })
     apify_dataset = apify_client.dataset(
         actor_call['defaultDatasetId']).list_items().items
 
-    records = [rec for rec in apify_dataset if rec['crawl']['httpStatusCode'] < 300
-               and len(rec['text']) >= min_text_length]
+    records = [rec for rec in apify_dataset if rec['crawl']['httpStatusCode'] < 300]
     return records
 
 
-# records = fetch_web_content(urls_filtered)
+records = fetch_web_content([item['url'] for item in search_results])
 
-
-# def vectorization_store(records: list[dict],
-#                         key_words: str,
-#                         persistent_dir = './chroma'):
-#     logging.info(f'Vectorizing documents into ChromaDB...')
+def doc_store(records: list[dict],
+                        company_name: str,
+                        persistent_dir = './chroma'):
+    persistent_client = chromadb.PersistentClient(
+        path=persistent_dir,
+        settings=Settings(anonymized_telemetry=False)
+    )
+    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
     
-#     persistent_client = chromadb.PersistentClient(
-#         path=persistent_dir,
-#         settings=Settings(anonymized_telemetry=False)
-#     )
-#     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, key_words).hex
+    huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
+        api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
+        model_name='sentence-transformers/all-MiniLM-L6-v2'
+    )
+    collection = persistent_client.get_or_create_collection(
+        collection_name,
+        embedding_function=huggingface_ef
+    )
+    collection.upsert(
+        ids=[item['url'] for item in records],
+        documents=[item['text'] for item in records],
+        metadatas=[{'source': item['url']} for item in records],
+        embeddings=[[0]] * len(records)
+    )
+
+    return collection_name
+
+
+
+def vectorization_store(records: list[dict],
+                        company_name: str,
+                        persistent_dir = './chroma_new'):
+    logging.info(f'Vectorizing documents into ChromaDB...')
     
-#     huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
-#         api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
-#         model_name='sentence-transformers/all-MiniLM-L6-v2'
-#     )
-#     collection = persistent_client.get_or_create_collection(
-#         collection_name,
-#         embedding_function=huggingface_ef
-#     )
-#     collection.upsert(
-#         ids=[item['url'] for item in records],
-#         documents=[item['text'] for item in records],
-#         metadatas=[{'source': item['url']} for item in records]
-#     )
+    persistent_client = chromadb.PersistentClient(
+        path=persistent_dir,
+        settings=Settings(anonymized_telemetry=False)
+    )
+    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+    
+    huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
+        api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
+        model_name='sentence-transformers/all-MiniLM-L6-v2'
+    )
+    collection = persistent_client.get_or_create_collection(
+        collection_name,
+        embedding_function=huggingface_ef
+    )
+    collection.upsert(
+        ids=[item['url'] for item in records],
+        documents=[item['text'] for item in records],
+        metadatas=[{'source': item['url']} for item in records],
+        embeddings=[[0]] * len(records)
+    )
 
-#     return collection_name
+    return collection_name
 
-# vectorization_store(records, key_words="IBM")
+vectorization_store(records, company_name="Bridge Water")
 
 # def mmr_retriever(key_words: str, 
 #               chunk_size = 1000,
@@ -294,7 +305,7 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 {COMPANY_NAME}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出。
 '''
 
-    urls = fetch_urls(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
+    urls = web_search(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
                       search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
 
     records = fetch_web_content(urls)

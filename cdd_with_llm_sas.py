@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -5,6 +6,7 @@ import sys
 import uuid
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 if sys.platform == 'linux':
@@ -32,6 +34,16 @@ app = FastAPI(
 
 )
 
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 EXCLUDE_LIST = [
     r'163\.com',
     r'ys80007\.com',
@@ -53,7 +65,7 @@ QA_TEMPLATE = '''
 有价值的回答：
 '''
 
-QUERY =f'''
+QUERY = f'''
 这家公司有哪些负面新闻？总结不超过3条主要的，每条独立一行列出。
 '''
 
@@ -61,13 +73,41 @@ SEARCH_SUFFIX = '负面新闻'
 
 IDONTKNOW = 'I don\'t know.'
 
+
 def sas_json_wrapper(data):
     return {
-        'item': data,
+        'items': data,
         'start': 0,
         'limit': len(data),
         'count': len(data)
     }
+
+
+def sas_json_wrapper2(data):
+    return {
+        'items': data,
+        'start': 0,
+        'limit': 1,
+        'count': 1
+    }
+
+
+@app.get('/cdd_with_llm/test')
+async def test():
+    return sas_json_wrapper(
+        {
+            "title": "<b>恒大</b>终于发财报了！两年巨亏8120亿，有息负债超1.7万亿！",
+            "snippet": '''根据中国<b>恒大</b>前期披露，公司的复牌条件要满足多项条款，其中主要包括：1、公布所有未公布的财务业绩，
+并解决任何审计保留意见的事项；2、对<b>恒大</b>物业134亿元的质押担保被相关银行强制执行进行独立调查，公布调查结果并采取适当的补>救措施等。 今日财报披露后，中国<b>恒大</b>表示，公司股份将继续暂停买卖，直至另行通知。 中国<b>恒大</b>仍无法复牌的关键原因之一
+是，今日披露的两份财报均被审计机构出具非标准报告。 审计机构上会栢诚表示，无法对公司的综合财务报表发表意见，具体包括两点核心因>素：''',
+            "url": "http://news.cnr.cn/native/gd/20230718/t20230718_526332687.shtml"
+        },
+    )
+
+
+@app.get('/cdd_with_llm/test2')
+async def test():
+    return 'hello world'
 
 
 @app.get('/cdd_with_llm/fetch_and_store')
@@ -157,12 +197,13 @@ async def fetch_and_store(company_name: str,
 
     return sas_json_wrapper(data=url_filtered_results)
 
+
 @app.get('/cdd_with_llm/qa_over_docs')
 async def qa_over_docs(company_name: str,
-                 qa_template: str = QA_TEMPLATE,
-                 query: str = QUERY,
-                 llm_provider: str = 'Alibaba'):
-    
+                       qa_template: str = QA_TEMPLATE,
+                       query: str = QUERY,
+                       llm_provider: str = 'Alibaba'):
+
     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
 
     client = chromadb.PersistentClient(
@@ -200,6 +241,30 @@ async def qa_over_docs(company_name: str,
     )
     try:
         answer = rag_chain.invoke(query)
-        return sas_json_wrapper(data=answer)
+        qa = {
+            'query': query,
+            'answer': answer
+        }
     except ValueError:  # Occurs when there is no relevant information
-        return sas_json_wrapper(data=IDONTKNOW)
+        qa = {
+            'query': query,
+            'answer': IDONTKNOW
+        }
+
+    if not os.path.exists('qa'):
+        os.makedirs('qa')
+    filename = './qa/' + collection_name + '.json'
+
+    with open(filename, 'w') as f:
+        json.dump(qa, f)
+
+    return filename
+
+
+@app.get('/cdd_with_llm/get_qa')
+async def get_qa(company_name: str):
+    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+    filename = './qa/' + collection_name + '.json'
+    with open(filename, 'r') as f:
+        qa = json.load(f)
+    return sas_json_wrapper2(qa)
