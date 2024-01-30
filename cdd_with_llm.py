@@ -1,7 +1,7 @@
 import logging
 import os
 import sys
-import re
+# import re
 import uuid
 
 if sys.platform == 'linux':
@@ -9,18 +9,15 @@ if sys.platform == 'linux':
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 import chromadb
-from chromadb.config import Settings
-import chromadb.utils.embedding_functions as embedding_functions
-
 from apify_client import ApifyClient
-
+from chromadb.config import Settings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from langchain_community.embeddings import (DashScopeEmbeddings,
+                                            HuggingFaceEmbeddings)
 from langchain_community.llms import QianfanLLMEndpoint, Tongyi
+from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
-from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
@@ -33,7 +30,7 @@ def web_search(company_name: str,
                search_suffix: str = ' negative news',
                search_engine_wrapper: str = 'Bing',
                num_results: int = 10,
-):
+               ):
     logging.info(f'Getting URLs from {search_engine_wrapper} search...')
 
     if search_engine_wrapper == 'Google':
@@ -43,20 +40,21 @@ def web_search(company_name: str,
     elif search_engine_wrapper == 'Bing':
         search_engine = BingSearchAPIWrapper(k=num_results)
     else:
-        logging.error(f'Search engine {search_engine_wrapper} not supported.')
+        logging.error(f'Search engine {search_engine_wrapper} is not supported.')
         return
 
-    raw_search_results = search_engine.results(company_name + search_suffix, 
-                                           num_results=num_results)
+    raw_search_results = search_engine.results(company_name + search_suffix,
+                                               num_results=num_results)
     if search_engine_wrapper == 'GoogleSerper':
         raw_search_results = raw_search_results['organic']
 
     search_results = [{'title': item['title'], 'snippet': item['snippet'],
                        'url': item['link']} for item in raw_search_results]
-    
+
     return search_results
 
-search_results = web_search('Bridge Water', num_results=5)
+
+# search_results = web_search('Bridge Water', num_results=15)
 
 
 def fetch_web_content(urls: list[str],
@@ -77,144 +75,86 @@ def fetch_web_content(urls: list[str],
     apify_dataset = apify_client.dataset(
         actor_call['defaultDatasetId']).list_items().items
 
-    records = [rec for rec in apify_dataset if rec['crawl']['httpStatusCode'] < 300]
+    records = [rec for rec in apify_dataset if rec['crawl']
+               ['httpStatusCode'] < 300]
     return records
 
 
-records = fetch_web_content([item['url'] for item in search_results])
+# records = fetch_web_content([item['url'] for item in search_results])
+
 
 def doc_store(records: list[dict],
-                        company_name: str,
-                        persistent_dir = './chroma'):
+              company_name: str):
     persistent_client = chromadb.PersistentClient(
-        path=persistent_dir,
+        path='./chroma',
         settings=Settings(anonymized_telemetry=False)
     )
     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-    
-    huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
-        api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
-        model_name='sentence-transformers/all-MiniLM-L6-v2'
-    )
+
+    # huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
+    #     api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
+    #     model_name='sentence-transformers/all-MiniLM-L6-v2'
+    # )
     collection = persistent_client.get_or_create_collection(
         collection_name,
-        embedding_function=huggingface_ef
+        # embedding_function=huggingface_ef
     )
     collection.upsert(
         ids=[item['url'] for item in records],
         documents=[item['text'] for item in records],
         metadatas=[{'source': item['url']} for item in records],
+        # Fake embedding, only for raw doc storage
         embeddings=[[0]] * len(records)
     )
 
     return collection_name
 
 
+# doc_store(records, company_name='Bridge Water')
 
-def vectorization_store(records: list[dict],
-                        company_name: str,
-                        persistent_dir = './chroma_new'):
-    logging.info(f'Vectorizing documents into ChromaDB...')
-    
+
+def qa_over_docs(
+        collection_name: str,
+        query: str,
+        qa_template: str,
+        llm_provider: str = 'Alibaba'
+):
     persistent_client = chromadb.PersistentClient(
-        path=persistent_dir,
+        path='./chroma',
         settings=Settings(anonymized_telemetry=False)
     )
-    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-    
-    huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
-        api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
-        model_name='sentence-transformers/all-MiniLM-L6-v2'
-    )
-    collection = persistent_client.get_or_create_collection(
-        collection_name,
-        embedding_function=huggingface_ef
-    )
-    collection.upsert(
-        ids=[item['url'] for item in records],
-        documents=[item['text'] for item in records],
-        metadatas=[{'source': item['url']} for item in records],
-        embeddings=[[0]] * len(records)
-    )
+    # huggingface_ef = embedding_functions.HuggingFaceEmbeddingFunction(
+    #     api_key=os.getenv('HUGGINGFACE_API_TOKEN'),
+    #     model_name='sentence-transformers/all-MiniLM-L6-v2'
+    # )
 
-    return collection_name
+    try:
+        collection = persistent_client.get_collection(collection_name)
+    except ValueError:
+        logging.error('Collection does not exist.')
 
-vectorization_store(records, company_name="Bridge Water")
+    chroma_docs = collection.get()
 
-# def mmr_retriever(key_words: str, 
-#               chunk_size = 1000,
-#               chunk_overlap = 100,
-#               persistent_dir = './chroma'):
-#     persistent_client = chromadb.PersistentClient(
-#         path=persistent_dir,
-#         settings=Settings(anonymized_telemetry=False)
-#     )
-#     collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, key_words).hex
-#     embedding_function = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-#     langchain_chroma=Chroma(
-#         collection_name,
-#         client=persistent_client,
-#         embedding_function=
-#     )
-
-
-def vectorization_store(records: list[dict],
-                        key_words: str,
-                        chunk_size: int = 1000,
-                        chunk_overlap: int = 100,
-                        persistent_dir = './chroma'):
-    logging.info(f'Vectorizing documents into ChromaDB...')
-    
-
-
-    docs = []
-    for rec in records:
-        doc = Document(page_content=rec['text'],
-                       metadata={'source': rec['url']})
-        docs.append(doc)
+    langchain_docs = []
+    for i in range(len(chroma_docs['ids'])):
+        langchain_doc = Document(
+            page_content=chroma_docs['documents'][i], metadata=chroma_docs['metadatas'][i])
+        langchain_docs.append(langchain_doc)
 
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
+        chunk_size=1000,
+        chunk_overlap=100,
     )
-    chunked_docs = splitter.split_documents(docs)
-
-    client = chromadb.PersistentClient(
-        path=persistent_dir,
-        settings=Settings(anonymized_telemetry=False))
-
-    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, key_words).hex
+    chunked_docs = splitter.split_documents(langchain_docs)
 
     langchain_chroma = Chroma(
-        collection_name,
-        embedding_function=HuggingFaceEmbeddings(),
-        client=client
+        collection_name='Ephemeral_Collection_for_QA',
+        client_settings=Settings(anonymized_telemetry=False),
+        # embedding_function=HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        embedding_function=DashScopeEmbeddings()
     )
 
-    ids = langchain_chroma.add_documents(chunked_docs)
-    logging.info(
-        f'{len(ids)} documents were added into collection {collection_name}')
-
-    return collection_name
-
-
-# collection_name = vectorization_store(records, 'IBM')
-
-
-def qa_over_docs(collection_name: str,
-                 general_qa_template: str,
-                 query: str,
-                 persistent_dir = './chroma',
-                 llm_provider: str = 'Alibaba'):
-    client = chromadb.PersistentClient(
-        path=persistent_dir,
-        settings=Settings(anonymized_telemetry=False))
-
-    langchain_chroma = Chroma(
-        collection_name,
-        embedding_function=HuggingFaceEmbeddings(),
-        client=client
-    )
+    langchain_chroma.add_documents(chunked_docs)
 
     mmr_retriever = langchain_chroma.as_retriever(
         search_type='mmr',
@@ -229,10 +169,10 @@ def qa_over_docs(collection_name: str,
     elif llm_provider == 'OpenAI':
         llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
     else:
-        logging.error(f'LLM provider {llm_provider} not supported.')
+        logging.error(f'LLM provider {llm_provider} is not supported.')
         return
 
-    rag_prompt = PromptTemplate.from_template(general_qa_template)
+    rag_prompt = PromptTemplate.from_template(qa_template)
     rag_chain = (
         {'context': mmr_retriever, 'question': RunnablePassthrough()}
         | rag_prompt
@@ -258,10 +198,11 @@ if __name__ == '__main__':
 
     # Proj settings
     # COMPANY_NAME = 'Rothenberg Ventures Management Company, LLC.'
-    COMPANY_NAME = '红岭创投'
+    # COMPANY_NAME = '红岭创投'
+    # COMPANY_NAME = '东方甄选'
     # COMPANY_NAME = '恒大财富'
     # COMPANY_NAME = '鸿博股份'
-    # COMPANY_NAME = '平安银行'
+    COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
     # COMPANY_NAME = 'BridgeWater Fund'
     # COMPANY_NAME = 'SAS Institute'
@@ -305,15 +246,14 @@ Summarize no more than 3 major ones, and itemizing each one in a seperate line.
 {COMPANY_NAME}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出。
 '''
 
-    urls = web_search(f'{COMPANY_NAME} {SEARCH_SUFFIX}',
-                      search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
+    search_results = web_search(
+        COMPANY_NAME, search_engine_wrapper=SEARCH_ENGINE, num_results=N_NEWS)
 
-    records = fetch_web_content(urls)
+    records = fetch_web_content([item['url'] for item in search_results])
 
-    collection_name = vectorization_store(
-        records, f'{COMPANY_NAME} {SEARCH_SUFFIX}')
+    collection_name = doc_store(records, COMPANY_NAME)
 
-    qa = qa_over_docs(collection_name, QA_TEMPLATE, QUERY)
+    qa = qa_over_docs(collection_name, QUERY, QA_TEMPLATE)
 
     print('-' * 80)
     print(qa['query'])
