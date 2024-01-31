@@ -39,7 +39,7 @@ def web_search(company_name: str,
                num_results: int = 10,
                lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US'
                ):
-    logger.info(f'Getting URLs from {search_engine} search...')
+    logger.info(f'Getting urls from {search_engine} search...')
 
     if search_engine == 'Google':
         if lang == 'zh-CN':
@@ -85,7 +85,7 @@ def web_search(company_name: str,
 
 def fetch_web_content(urls: List[str],
                       min_text_length: int = 100):
-    logger.info('Getting detailed web content from each URL...')
+    logger.info('Getting detailed web content from each url...')
 
     apify_client = ApifyClient(os.getenv('APIFY_API_TOKEN'))
     actor_call = apify_client.actor('apify/website-content-crawler').call(
@@ -137,9 +137,10 @@ def doc_store(records: List[Dict],
 
 # doc_store(records, company_name='Theranos', lang='zh-CN')
 
-def template_by_lang(lang: str):
+def template_by_lang(company_name: str,
+                     lang: str):
     if lang == 'zh-CN':
-        query = '''这家公司有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。
+        query = f'''{company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。
 '''
         qa_template = '''利用下列信息回答后面的问题。如果你不知道答案就直接回答'不知道'，不要主观编造答案。
 最多使用5句话，回答尽量简洁。
@@ -152,7 +153,7 @@ def template_by_lang(lang: str):
 '''
         no_info = '没有足够的信息回答该问题'
     elif lang == 'zh-HK' or lang == 'zh-TW':
-        query = '''這家公司有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。
+        query = f'''{company_name}有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。
 '''
         qa_template = '''利用下列資訊回答後面的問題。如果你不知道答案就直接回答'不知道'，不要主觀編造答案。
 最多使用5句話，回答儘量簡潔。
@@ -165,7 +166,7 @@ def template_by_lang(lang: str):
 '''
         no_info = '沒有足夠的資訊回答該問題'
     else:
-        query = '''What is the negative news about this company? 
+        query = f'''What is the negative news about {company_name}? 
 Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.
 '''
         qa_template = '''Use the following pieces of context to answer the question at the end.
@@ -191,10 +192,10 @@ def qa_over_docs(
         embedding_provider: str = 'AzureOpenAI',
         llm_provider: str = 'AzureOpenAI'  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
 ):
-    qa_template = template_by_lang(lang)['qa_template']
-    no_info = template_by_lang(lang)['no_info']
+    qa_template = template_by_lang(company_name, lang)['qa_template']
+    no_info = template_by_lang(company_name, lang)['no_info']
     if query is None:
-        query = template_by_lang(lang)['query']
+        query = template_by_lang(company_name, lang)['query']
 
     persistent_client = chromadb.PersistentClient(
         path='./chroma',
@@ -254,7 +255,7 @@ def qa_over_docs(
         search_kwargs={'k': 3, 'fetch_k': 5}
     )
 
-    logger.info(f'Documents QA using LLM provied by {llm_provider}...')
+    logger.info(f'Documents QA with provider {llm_provider}...')
     if llm_provider == 'Alibaba':
         chat_llm = Tongyi(model_name='qwen-max', temperature=0)
     elif llm_provider == 'Baidu':
@@ -268,7 +269,6 @@ def qa_over_docs(
         logger.error(f'LLM provider {llm_provider} is not supported.')
         return
 
-    # rag_prompt = PromptTemplate.from_template(qa_template)
     rag_prompt = ChatPromptTemplate.from_template(qa_template)
     rag_chain = (
         {'context': mmr_retriever, 'question': RunnablePassthrough()}
@@ -296,10 +296,10 @@ if __name__ == '__main__':
     # Proj settings
     # COMPANY_NAME = 'Rothenberg Ventures Management Company, LLC.'
     # COMPANY_NAME = '红岭创投'
-    # COMPANY_NAME = '东方甄选'
+    COMPANY_NAME = '东方甄选'
     # COMPANY_NAME = '恒大财富'
     # COMPANY_NAME = '鸿博股份'
-    COMPANY_NAME = '平安银行'
+    # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
     # COMPANY_NAME = 'BridgeWater'
     # COMPANY_NAME = 'SAS Institute'
