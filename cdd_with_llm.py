@@ -4,8 +4,8 @@ import sys
 if sys.platform == 'linux':
     __import__('pysqlite3')
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
 import uuid
+import pprint
 from typing import Union, List, Dict
 
 
@@ -16,16 +16,16 @@ from apify_client import ApifyClient
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # from langchain_community.embeddings import DashScopeEmbeddings, HuggingFaceEmbeddings
-# from langchain_community.llms import QianfanLLMEndpoint, Tongyi
+from langchain_community.llms import QianfanLLMEndpoint, Tongyi
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
-from langchain_community.utilities.google_search import GoogleSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import PromptTemplate, ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import ChatOpenAI, AzureOpenAI, AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_openai import ChatOpenAI, AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAI
 
 
 def web_search(company_name: str,
@@ -75,7 +75,7 @@ def web_search(company_name: str,
     return search_results
 
 
-# search_results = web_search('Bridge Water', num_results=15)
+search_results = web_search('BridgeWater', lang='en-US')
 
 
 def fetch_web_content(urls: List[str],
@@ -101,10 +101,10 @@ def fetch_web_content(urls: List[str],
     return records
 
 
-# records = fetch_web_content([item['url'] for item in search_results])
+records = fetch_web_content([item['url'] for item in search_results])
 
 
-def doc_store(records: List[dict],
+def doc_store(records: List[Dict],
               company_name: str):
 
     logging.info('Storing fetched documents into Chroma...')
@@ -128,15 +128,57 @@ def doc_store(records: List[dict],
     return collection_name
 
 
-# doc_store(records, company_name='Bridge Water')
+doc_store(records, company_name='BridgeWater')
 
 
 def qa_over_docs(
-        collection_name: str,
-        query: str,
-        qa_template: str,
-        # llm_provider: str = 'Azure OpenAI'
+        company_name: str,
+        query: Union[str, None] = None,
+        lang='zh-CN',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+        llm_provider: str = 'AzureOpenAI'  # 'Alibaba', 'Baidu', 'Google', 'OpenAI', 'AzureOpenAI'
 ):
+    if lang == 'zh-CN':
+        if query is None:
+            query = '''这家公司有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。
+'''
+        qa_template = '''利用下列信息回答后面的问题。如果你不知道答案就直接回答'不知道'，不要主观编造答案。
+最多使用5句话，回答尽量简洁。
+
+{context}
+
+问题：{question}
+
+有价值的回答：
+'''
+    elif lang == 'zh-HK' or lang == 'zh-TW':
+        if query is None:
+            query = '''這家公司有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。
+'''
+        qa_template = '''利用下列資訊回答後面的問題。如果你不知道答案就直接回答'不知道'，不要主觀編造答案。
+最多使用5句話，回答儘量簡潔。
+
+{context}
+
+問題：{question}
+
+有價值的回答：
+'''
+    else:
+        if query is None:
+            query = '''What is the negative news about this company? 
+Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.
+'''
+        qa_template = '''Use the following pieces of context to answer the question at the end.
+If you don't know the answer, just say that you don't know, don't try to make up an answer.
+Use 5 sentences maximum and keep the answer as concise as possible.
+
+{context}
+
+Question: {question}
+
+Helpful Answer:
+'''
+
     persistent_client = chromadb.PersistentClient(
         path='./chroma',
         settings=Settings(anonymized_telemetry=False)
@@ -146,6 +188,7 @@ def qa_over_docs(
     #     model_name='sentence-transformers/all-MiniLM-L6-v2'
     # )
 
+    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
     try:
         collection = persistent_client.get_collection(collection_name)
     except ValueError:
@@ -182,20 +225,22 @@ def qa_over_docs(
         search_kwargs={'k': 3, 'fetch_k': 5}
     )
 
-    logging.info(f'Documents QA using LLM provied by Azure OpenAI...')
-    # if llm_provider == 'Alibaba':
-    #     llm = Tongyi(model_name='qwen-max', temperature=0)
-    # elif llm_provider == 'Baidu':
-    #     llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
-    # elif llm_provider == 'OpenAI':
-    #     llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
-    # else:
-    #     logging.error(f'LLM provider {llm_provider} is not supported.')
-    #     return
+    logging.info(f'Documents QA using LLM provied by {llm_provider}...')
+    if llm_provider == 'Alibaba':
+        chat_llm = Tongyi(model_name='qwen-max', temperature=0)
+    elif llm_provider == 'Baidu':
+        chat_llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
+    elif llm_provider == 'Google':
+        chat_llm = GoogleGenerativeAI(model="gemini-pro", google_api_key=os.getenv('GOOGLE_API_KEY'))
+    elif llm_provider == 'OpenAI':
+        chat_llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
+    elif llm_provider == 'AzureOpenAI':
+        chat_llm = AzureChatOpenAI(azure_deployment=os.getenv(
+            'AZURE_OPENAI_LLM_DEPLOY'), temperature=0)
+    else:
+        logging.error(f'LLM provider {llm_provider} is not supported.')
+        return
 
-    # llm = AzureOpenAI(azure_deployment='gpt4')
-    chat_llm = AzureChatOpenAI(
-        azure_deployment=os.getenv('AZURE_OPENAI_LLM_DEPLOY'))
     # rag_prompt = PromptTemplate.from_template(qa_template)
     rag_prompt = ChatPromptTemplate.from_template(qa_template)
     rag_chain = (
@@ -216,6 +261,8 @@ def qa_over_docs(
             'answer': 'I don\'t know.'
         }
 
+qa = qa_over_docs('BridgeWater', lang='en-US', llm_provider='Google')
+
 
 if __name__ == '__main__':
     logging.basicConfig(
@@ -233,54 +280,8 @@ if __name__ == '__main__':
     # COMPANY_NAME = 'SAS Institute'
     # COMPANY_NAME = 'Apple Inc.'
 
-    N_NEWS = 10
-    LANG = 'zh'  # {'zh', 'en'}
-    SEARCH_ENGINE = 'Bing'  # {'Bing', 'Google', 'GoogleSerper'}
-    # LLM_PROVIDER = 'Alibaba'  # {'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'}
-
-    if LANG == 'en':
-        SEARCH_SUFFIX = 'negative news'
-        QA_TEMPLATE = '''
-Use the following pieces of context to answer the question at the end.
-If you don't know the answer, just say that you don't know, don't try to make up an answer.
-Use five sentences maximum and keep the answer as concise as possible.
-
-{context}
-
-Question: {question}
-
-Helpful Answer:
-'''
-        QUERY = f'''
-What is the negative news about {COMPANY_NAME}? 
-Summarize no more than 3 major ones, and itemizing each one in a seperate line.
-'''
-    elif LANG == 'zh':
-        SEARCH_SUFFIX = '负面新闻'
-        QA_TEMPLATE = '''
-利用下列信息回答后面的问题。如果你不知道答案就直接回答'不知道'，不要主观编造答案。
-最多使用五句话，回答尽量简洁。
-
-{context}
-
-问题：{question}
-
-有价值的回答：
-'''
-        QUERY = f'''
-{COMPANY_NAME}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出。
-'''
-
-    search_results = web_search(
-        COMPANY_NAME, search_engine=SEARCH_ENGINE, num_results=N_NEWS)
-
+    search_results = web_search(COMPANY_NAME)
     records = fetch_web_content([item['url'] for item in search_results])
-
     collection_name = doc_store(records, COMPANY_NAME)
-
-    qa = qa_over_docs(collection_name, QUERY, QA_TEMPLATE)
-
-    print('-' * 80)
-    print(qa['query'])
-    print('-' * 80)
-    print(qa['answer'])
+    qa = qa_over_docs(COMPANY_NAME)
+    pprint.pprint(qa, compact=True)
