@@ -2,6 +2,7 @@
 **/test.py
 /chroma
 /qa
+/db
 .idea
 *.py[cod]
 *.log

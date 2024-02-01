@@ -6,10 +6,8 @@ if sys.platform == 'linux':
     sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 import uuid
 import pprint
-from typing import Union, List, Dict
+from typing import Optional, List, Dict
 
-
-import chromadb
 from chromadb.config import Settings
 
 from apify_client import ApifyClient
@@ -33,8 +31,9 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
+
 def web_search(company_name: str,
-               search_suffix: Union[str, None] = None,
+               search_suffix: Optional[str] = None,
                search_engine: str = 'Bing',  # 'Bing', 'Google'
                num_results: int = 10,
                lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US'
@@ -101,41 +100,14 @@ def fetch_web_content(urls: List[str],
     apify_dataset = apify_client.dataset(
         actor_call['defaultDatasetId']).list_items().items
 
-    records = [rec for rec in apify_dataset if rec['crawl']
+    web_content = [rec for rec in apify_dataset if rec['crawl']
                ['httpStatusCode'] < 300]
-    return records
+    return web_content
 
 
-# records = fetch_web_content([item['url'] for item in search_results])
+# web_content = fetch_web_content([item['url'] for item in search_results])
 
 
-def doc_store(records: List[Dict],
-              company_name: str,
-              lang: str = 'en-US' # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US'
-              ):
-
-    logger.info('Storing fetched documents into Chroma...')
-    persistent_client = chromadb.PersistentClient(
-        path='./chroma',
-        settings=Settings(anonymized_telemetry=False)
-    )
-    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name + lang).hex
-
-    collection = persistent_client.get_or_create_collection(
-        collection_name,
-    )
-    collection.upsert(
-        ids=[item['url'] for item in records],
-        documents=[item['text'] for item in records],
-        metadatas=[{'source': item['url']} for item in records],
-        # Fake embeddings, only for raw doc storage
-        embeddings=[[0]] * len(records)
-    )
-
-    return collection_name
-
-
-# doc_store(records, company_name='Theranos', lang='zh-CN')
 
 def template_by_lang(company_name: str,
                      lang: str):
@@ -186,10 +158,10 @@ Helpful Answer:
 
 def qa_over_docs(
         company_name: str,
-        query: Union[str, None] = None,
-        lang: str ='en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-        # 'Alibaba', 'Baidu', 'HuggingFace', 'OpenAI', 'AzureOpenAI'
-        embedding_provider: str = 'AzureOpenAI',
+        web_content: List[Dict],
+        query: Optional[str]= None,
+        lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+        embedding_provider: str = 'AzureOpenAI', # 'Alibaba', 'Baidu', 'HuggingFace', 'OpenAI', 'AzureOpenAI'
         llm_provider: str = 'AzureOpenAI'  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
 ):
     qa_template = template_by_lang(company_name, lang)['qa_template']
@@ -197,27 +169,14 @@ def qa_over_docs(
     if query is None:
         query = template_by_lang(company_name, lang)['query']
 
-    persistent_client = chromadb.PersistentClient(
-        path='./chroma',
-        settings=Settings(anonymized_telemetry=False)
-    )
-
-    collection_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name + lang).hex
-    try:
-        collection = persistent_client.get_collection(collection_name)
-    except ValueError:
-        logger.error(f'Collection {collection_name} does not exist.')
-        return
-
-    chroma_docs = collection.get()
-
     langchain_docs = []
-    for i in range(len(chroma_docs['ids'])):
+    for item in web_content:
         langchain_doc = Document(
-            page_content=chroma_docs['documents'][i], metadata=chroma_docs['metadatas'][i])
+            page_content=item['text'],
+            metadata={'source': item['url']}
+        )
         langchain_docs.append(langchain_doc)
 
-    logger.info('Splitting documents into small chunks...')
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=100,
@@ -282,7 +241,7 @@ def qa_over_docs(
             'query': query,
             'answer': answer
         }
-    except ValueError:  # Occurs when there is no relevant information
+    except ValueError:  # Occurs when retriever returns nothing
         return {
             'query': query,
             'answer': no_info
@@ -296,20 +255,19 @@ if __name__ == '__main__':
     # Proj settings
     # COMPANY_NAME = 'Rothenberg Ventures Management Company, LLC.'
     # COMPANY_NAME = '红岭创投'
-    COMPANY_NAME = '东方甄选'
+    # COMPANY_NAME = '东方甄选'
     # COMPANY_NAME = '恒大财富'
     # COMPANY_NAME = '鸿博股份'
     # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
-    # COMPANY_NAME = 'BridgeWater'
+    COMPANY_NAME = 'BridgeWater'
     # COMPANY_NAME = 'SAS Institute'
     # COMPANY_NAME = 'Apple Inc.
-    
-    LANG = 'zh-CN'
+
+    LANG = 'en-US'
 
     search_results = web_search(COMPANY_NAME, lang=LANG)
-    records = fetch_web_content([item['url'] for item in search_results])
-    collection_name = doc_store(records, COMPANY_NAME, lang=LANG)
-    qa = qa_over_docs(COMPANY_NAME, lang=LANG)
+    web_content = fetch_web_content([item['url'] for item in search_results])
+    qa = qa_over_docs(COMPANY_NAME, web_content, lang=LANG)
     if qa:
         pprint.pprint(qa, compact=True)
