@@ -14,8 +14,8 @@ from chromadb.config import Settings
 from apify_client import ApifyClient
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import DashScopeEmbeddings, HuggingFaceEmbeddings, QianfanEmbeddingsEndpoint
-from langchain_community.llms import QianfanLLMEndpoint, Tongyi
+from langchain_community.embeddings import DashScopeEmbeddings, HuggingFaceEmbeddings
+from langchain_community.llms import Tongyi
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
@@ -100,7 +100,7 @@ def fetch_web_content(company_name: str,
             'crawlerType': 'cheerio',
             'maxCrawlDepth': 0,
             'maxSessionRotations': 0,
-            'maxRequestRetries': 1,
+            'maxRequestRetries': 0,
             'readableTextCharThreshold': min_text_length,
             'proxyConfiguration': {'useApifyProxy': True},
         })
@@ -181,9 +181,8 @@ def qa_over_docs(
         web_content: List[Dict],
         query: Optional[str] = None,
         lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-        # 'Alibaba', 'Baidu', 'HuggingFace', 'OpenAI', 'AzureOpenAI'
-        embedding_provider: str = 'AzureOpenAI',
-        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
+        embedding_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
         with_redis_data: bool = True,
 ):
     qa_template = template_by_lang(company_name, lang)['qa_template']
@@ -222,14 +221,10 @@ def qa_over_docs(
                                               )
     chunked_docs = splitter.split_documents(langchain_docs)
 
-    logger.info(f'Documents embedding with provider {embedding_provider}')
+    logger.info(f'Documents embedding with provider {embedding_provider}...')
     if embedding_provider == 'Alibaba':
         embedding_fc = DashScopeEmbeddings(
             dashscope_api_key=os.getenv('DASHSCOPE_API_KEY'))
-    elif embedding_provider == 'Baidu':
-        embedding_fc = QianfanEmbeddingsEndpoint()
-    elif embedding_provider == 'HuggingFace':
-        embedding_fc = HuggingFaceEmbeddings()
     elif embedding_provider == 'OpenAI':
         embedding_fc = OpenAIEmbeddings()
     elif embedding_provider == 'AzureOpenAI':
@@ -256,8 +251,6 @@ def qa_over_docs(
     logger.info(f'Documents QA with provider {llm_provider}...')
     if llm_provider == 'Alibaba':
         chat_llm = Tongyi(model_name='qwen-max', temperature=0)
-    elif llm_provider == 'Baidu':
-        chat_llm = QianfanLLMEndpoint(model='ERNIE-Bot', temperature=0.01)
     elif llm_provider == 'OpenAI':
         chat_llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
     elif llm_provider == 'AzureOpenAI':
@@ -296,19 +289,33 @@ if __name__ == '__main__':
     # COMPANY_NAME = '红岭创投'
     # COMPANY_NAME = '东方甄选'
     # COMPANY_NAME = '恒大财富'
-    # COMPANY_NAME = '鸿博股份'
+    COMPANY_NAME = '鸿博股份'
     # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
     # COMPANY_NAME = 'Bridge Water'
-    COMPANY_NAME = 'SAS Institute'
-    # COMPANY_NAME = 'Apple Inc.
+    # COMPANY_NAME = 'SAS Institute'
+    # COMPANY_NAME = 'Apple Inc.'
+    SEARCH_ENGINE = 'Bing'
+    LANG = 'zh-CN'
+    LLM_PROVIDER = 'Alibaba'
+    EMBEDDING_PROVIDER = 'HuggingFace'
 
-    LANG = 'en-US'
+    search_results = web_search(company_name=COMPANY_NAME,
+                                search_engine=SEARCH_ENGINE,
+                                num_results=10,
+                                lang=LANG)
 
-    search_results = web_search(COMPANY_NAME, lang=LANG, num_results=1)
-    web_content = fetch_web_content(
-        COMPANY_NAME, [item['url'] for item in search_results], save_to_redis=True, lang=LANG)
-    qa = qa_over_docs(COMPANY_NAME, web_content,
-                      lang=LANG, with_redis_data=True)
+    web_content = fetch_web_content(company_name=COMPANY_NAME,
+                                    urls=[item['url']
+                                          for item in search_results],
+                                    lang=LANG,
+                                    save_to_redis=True)
+
+    qa = qa_over_docs(company_name=COMPANY_NAME,
+                      web_content=web_content,
+                      lang=LANG,
+                      llm_provider=LLM_PROVIDER,
+                      embedding_provider=EMBEDDING_PROVIDER,
+                      with_redis_data=False)
     if qa:
         pprint.pprint(qa, compact=True)
