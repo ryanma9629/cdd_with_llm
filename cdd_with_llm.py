@@ -8,6 +8,7 @@ import uuid
 import pprint
 from typing import Optional, List, Dict
 
+import redis
 from chromadb.config import Settings
 
 from apify_client import ApifyClient
@@ -25,11 +26,12 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings, AzureChatOpenAI, AzureOpenAIEmbeddings
 
 logger = logging.getLogger()
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
 def web_search(company_name: str,
@@ -78,12 +80,17 @@ def web_search(company_name: str,
 
     return search_results
 
+# company_name = '红岭创投'
+# # company_name = 'Theranos'
+# search_results = web_search(company_name, lang='en-US')
 
-# search_results = web_search('Theranos', lang='zh-CN')
 
-
-def fetch_web_content(urls: List[str],
-                      min_text_length: int = 100):
+def fetch_web_content(company_name: str,
+                      urls: List[str],
+                      min_text_length: int = 100,
+                      lang: str = 'en-US',
+                      save_to_redis: bool = True,
+                      ):
     logger.info('Getting detailed web content from each url...')
 
     apify_client = ApifyClient(os.getenv('APIFY_API_TOKEN'))
@@ -101,12 +108,25 @@ def fetch_web_content(urls: List[str],
         actor_call['defaultDatasetId']).list_items().items
 
     web_content = [rec for rec in apify_dataset if rec['crawl']
-               ['httpStatusCode'] < 300]
+                   ['httpStatusCode'] < 300]
+
+    if save_to_redis:
+        logger.info('Save fetched web contents to redis...')
+        encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+        r = redis.Redis(host=os.getenv('REDIS_HOST'),
+                        port=os.getenv('REDIS_PORT'),
+                        username=os.getenv('REDIS_USER'),
+                        password=os.getenv('REDIS_PASSWORD'))
+        hname = 'cdd_with_llm:web_content:' + encoded_name + ':' + lang
+        for item in web_content:
+            r.hset(hname, item['url'], item['text'])
+
+        r.close()
+
     return web_content
 
 
-# web_content = fetch_web_content([item['url'] for item in search_results])
-
+# web_content = fetch_web_content(company_name, [item['url'] for item in search_results])
 
 
 def template_by_lang(company_name: str,
@@ -159,10 +179,12 @@ Helpful Answer:
 def qa_over_docs(
         company_name: str,
         web_content: List[Dict],
-        query: Optional[str]= None,
+        query: Optional[str] = None,
         lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-        embedding_provider: str = 'AzureOpenAI', # 'Alibaba', 'Baidu', 'HuggingFace', 'OpenAI', 'AzureOpenAI'
-        llm_provider: str = 'AzureOpenAI'  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
+        # 'Alibaba', 'Baidu', 'HuggingFace', 'OpenAI', 'AzureOpenAI'
+        embedding_provider: str = 'AzureOpenAI',
+        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
+        with_redis_data: bool = True,
 ):
     qa_template = template_by_lang(company_name, lang)['qa_template']
     no_info = template_by_lang(company_name, lang)['no_info']
@@ -177,10 +199,27 @@ def qa_over_docs(
         )
         langchain_docs.append(langchain_doc)
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100,
-    )
+    if with_redis_data:
+        logger.info('Getting historical data from redis...')
+        encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+        r = redis.Redis(host=os.getenv('REDIS_HOST'),
+                        port=os.getenv('REDIS_PORT'),
+                        username=os.getenv('REDIS_USER'),
+                        password=os.getenv('REDIS_PASSWORD'))
+        hname = 'cdd_with_llm:web_content:' + encoded_name + ':' + lang
+        redis_data = r.hgetall(hname)
+        r.close()
+
+        for key in redis_data:
+            langchain_doc = Document(
+                page_content=redis_data[key].decode('UTF-8'),
+                metadata={'source': key.decode('UTF-8')}
+            )
+            langchain_docs.append(langchain_doc)
+
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000,
+                                              chunk_overlap=100,
+                                              )
     chunked_docs = splitter.split_documents(langchain_docs)
 
     logger.info(f'Documents embedding with provider {embedding_provider}')
@@ -260,14 +299,16 @@ if __name__ == '__main__':
     # COMPANY_NAME = '鸿博股份'
     # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
-    COMPANY_NAME = 'BridgeWater'
-    # COMPANY_NAME = 'SAS Institute'
+    # COMPANY_NAME = 'Bridge Water'
+    COMPANY_NAME = 'SAS Institute'
     # COMPANY_NAME = 'Apple Inc.
 
     LANG = 'en-US'
 
-    search_results = web_search(COMPANY_NAME, lang=LANG)
-    web_content = fetch_web_content([item['url'] for item in search_results])
-    qa = qa_over_docs(COMPANY_NAME, web_content, lang=LANG)
+    search_results = web_search(COMPANY_NAME, lang=LANG, num_results=1)
+    web_content = fetch_web_content(
+        COMPANY_NAME, [item['url'] for item in search_results], save_to_redis=True, lang=LANG)
+    qa = qa_over_docs(COMPANY_NAME, web_content,
+                      lang=LANG, with_redis_data=True)
     if qa:
         pprint.pprint(qa, compact=True)
