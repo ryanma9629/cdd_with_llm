@@ -14,7 +14,7 @@ from chromadb.config import Settings
 from apify_client import ApifyClient
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import DashScopeEmbeddings, HuggingFaceEmbeddings
+from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.llms import Tongyi
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
