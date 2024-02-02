@@ -210,7 +210,8 @@ def qa_over_docs(
 
     mmr_retriever = langchain_chroma.as_retriever(
         search_type='mmr',
-        search_kwargs={'k': 3, 'fetch_k': 5}
+        search_kwargs={'k': min(3, len(chunked_docs)),
+                       'fetch_k': min(5, len(chunked_docs))}
     )
 
     logger.info(f'Documents QA with provider {llm_provider}...')
@@ -246,10 +247,10 @@ def qa_over_docs(
 
 
 def tagging_over_docs(company_name: str,
-        web_content: List[Dict],
-        lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-        llm_provider: str = 'AzureOpenAI'
-):
+                      web_content: List[Dict],
+                      lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+                      llm_provider: str = 'AzureOpenAI'
+                      ):
     if lang == 'en-US':
         schema = {
             'properties': {
@@ -292,7 +293,7 @@ def tagging_over_docs(company_name: str,
             },
             'required': ['是否涉嫌金融犯罪', '涉嫌金融犯罪类型', '概率'],
         }
-    
+
     if llm_provider == 'Alibaba':
         llm = Tongyi(model_name='qwen-max', temperature=0)
     elif llm_provider == 'OpenAI':
@@ -303,18 +304,19 @@ def tagging_over_docs(company_name: str,
     else:
         logger.error(f'LLM provider {llm_provider} is not supported.')
         return
-    
+
     chain = create_tagging_chain(schema, llm)
     tags = []
     splitter = RecursiveCharacterTextSplitter(chunk_size=4000,
-                                        chunk_overlap=0,
-                                        )
+                                              chunk_overlap=0,
+                                              )
     for doc in [item['text'] for item in web_content]:
         chunked_docs = splitter.split_text(doc)
         # Use only the first chunk to save llm calls
         tags.append(chain.invoke(chunked_docs[0]))
 
     return tags
+
 
 if __name__ == '__main__':
     # Proj settings
@@ -359,10 +361,10 @@ if __name__ == '__main__':
     #     pprint.pprint(qa, compact=True)
 
     tags = tagging_over_docs(company_name,
-        web_content = web_content,
-        lang = lang,  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-        llm_provider = 'AzureOpenAI'
-    )
+                             web_content=web_content,
+                             lang=lang,  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+                             llm_provider='AzureOpenAI'
+                             )
 
     if tags:
         pprint.pprint([item['text'] for item in tags])
