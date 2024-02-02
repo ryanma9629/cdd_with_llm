@@ -99,14 +99,14 @@ def fetch_web_content(company_name: str,
             'maxCrawlDepth': 0,
             'maxSessionRotations': 0,
             'maxRequestRetries': 0,
-            'readableTextCharThreshold': min_text_length,
+            # 'readableTextCharThreshold': min_text_length,
             'proxyConfiguration': {'useApifyProxy': True},
         })
     apify_dataset = apify_client.dataset(
         actor_call['defaultDatasetId']).list_items().items
 
-    web_content = [rec for rec in apify_dataset if rec['crawl']
-                   ['httpStatusCode'] < 300]
+    web_content = [item for item in apify_dataset if item['crawl']
+                   ['httpStatusCode'] < 300 and len(item['text']) >= min_text_length]
 
     if save_to_redis:
         logger.info('Save fetched web contents to redis...')
@@ -260,7 +260,7 @@ def tagging_over_docs(company_name: str,
                 },
                 'types of suspected financial crimes': {
                     'type': 'string',
-                    'enum': ['Not Suspected', 'Financial Fraud', 'Counterfeiting Currency/Financial Instruments', 'Illegal Absorption of Public Deposits', 'Money Laundering', 'Insider Trading', 'Manipulation of Securities Markets', 'Other financial crime types'],
+                    'enum': ['Not Suspected', 'Financial Fraud', 'Counterfeiting Currency/Financial Instruments', 'Illegal Absorption of Public Deposits', 'Illegal Granting of Loans', 'Money Laundering', 'Insider Trading', 'Manipulation of Securities Markets'],
                     'description': f'Describes the specific type of financial crime {company_name} is suspected of committing, or returns the type "not suspected" if not suspected',
                 },
                 'probability': {
@@ -281,7 +281,7 @@ def tagging_over_docs(company_name: str,
                 },
                 '涉嫌金融犯罪类型': {
                     'type': 'string',
-                    'enum': ['不涉嫌', '金融诈骗', '伪造货币/金融票据', '非法吸收公众存款', '洗钱', '内幕交易', '操纵证券市场', '其它金融犯罪'],
+                    'enum': ['不涉嫌', '金融诈骗', '伪造货币/金融票据', '非法吸收公众存款', '违法发放贷款', '洗钱', '内幕交易', '操纵证券市场'],
                     'description': f'描述{company_name}涉嫌的金融犯罪具体类型，如果不涉嫌则返回类型"不涉嫌"',
                 },
                 '概率': {
@@ -306,44 +306,50 @@ def tagging_over_docs(company_name: str,
     
     chain = create_tagging_chain(schema, llm)
     tags = []
+    splitter = RecursiveCharacterTextSplitter(chunk_size=4000,
+                                        chunk_overlap=0,
+                                        )
     for doc in [item['text'] for item in web_content]:
-        tags.append(chain.invoke(doc))
+        chunked_docs = splitter.split_text(doc)
+        # Use only the first chunk to save llm calls
+        tags.append(chain.invoke(chunked_docs[0]))
 
     return tags
 
 if __name__ == '__main__':
     # Proj settings
-    # COMPANY_NAME = 'Rothenberg Ventures Management Company, LLC.'
-    # COMPANY_NAME = '红岭创投'
-    # COMPANY_NAME = '东方甄选'
-    # COMPANY_NAME = '恒大财富'
-    # COMPANY_NAME = '鸿博股份'
-    # COMPANY_NAME = '平安银行'
-    # COMPANY_NAME = 'Theranos'
-    # COMPANY_NAME = 'Bridge Water'
-    COMPANY_NAME = 'SAS Institute'
-    # COMPANY_NAME = 'Apple Inc.'
-    SEARCH_ENGINE = 'Bing'
-    # SEARCH_SUFFIX = '负面新闻'
-    SEARCH_SUFFIX = 'negative news'
-    # LANG = 'zh-CN'
-    LANG = 'en-US'
-    LLM_PROVIDER = 'AzureOpenAI'
-    EMBEDDING_PROVIDER = 'AzureOpenAI'
+    # company_name = 'Rothenberg Ventures Management Company, LLC.'
+    # company_name = '红岭创投'
+    # company_name = '东方甄选'
+    # company_name = '恒大财富'
+    company_name = '鸿博股份'
+    # company_name = '平安银行'
+    # company_name = 'Theranos'
+    # company_name = 'Bridge Water'
+    # company_name = 'SAS Institute'
+    # company_name = 'Apple Inc.'
+    search_engine = 'Bing'
+    search_suffix = '负面新闻'
+    # search_suffix = 'negative news'
+    lang = 'zh-CN'
+    # lang = 'en-US'
+    llm_provider = 'AzureOpenAI'
+    embedding_provider = 'AzureOpenAI'
+    num_results = 10
 
-    search_results = web_search(company_name=COMPANY_NAME,
-                                search_suffix=SEARCH_SUFFIX,
-                                search_engine=SEARCH_ENGINE,
-                                num_results=10,
-                                lang=LANG)
+    search_results = web_search(company_name=company_name,
+                                search_suffix=search_suffix,
+                                search_engine=search_engine,
+                                num_results=num_results,
+                                lang=lang)
 
-    web_content = fetch_web_content(company_name=COMPANY_NAME,
+    web_content = fetch_web_content(company_name=company_name,
                                     urls=[item['url']
                                           for item in search_results],
-                                    lang=LANG,
+                                    lang=lang,
                                     save_to_redis=False)
 
-    # qa = qa_over_docs(company_name=COMPANY_NAME,
+    # qa = qa_over_docs(company_name=company_name,
     #                   web_content=web_content,
     #                   lang=LANG,
     #                   llm_provider=LLM_PROVIDER,
@@ -352,8 +358,11 @@ if __name__ == '__main__':
     # if qa:
     #     pprint.pprint(qa, compact=True)
 
-    tagging_over_docs(COMPANY_NAME,
+    tags = tagging_over_docs(company_name,
         web_content = web_content,
-        lang = LANG,  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+        lang = lang,  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
         llm_provider = 'AzureOpenAI'
     )
+
+    if tags:
+        pprint.pprint([item['text'] for item in tags])

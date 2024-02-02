@@ -133,15 +133,17 @@ async def tagging_over_docs_sas(company_name: str,
     with open(filename, 'r') as f:
         web_content = json.load(f)
 
-    tag = tagging_over_docs(company_name, web_content, lang, llm_provider)
+    res = tagging_over_docs(company_name, web_content, lang, llm_provider)
+    tags = [item['text'] for item in res]
+
     if not os.path.exists('db'):
         os.makedirs('db')
     filename = './db/' + encoded_name + '_tag.json'
 
     with open(filename, 'w') as f:
-        json.dump(tag, f)
+        json.dump(tags, f)
 
-    return sas_json_wrapper(tag)
+    return sas_json_wrapper(tags)
 
 
 @app.get('/cdd_with_llm/qa_over_docs')
