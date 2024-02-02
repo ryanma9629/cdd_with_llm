@@ -13,6 +13,8 @@ from chromadb.config import Settings
 
 from apify_client import ApifyClient
 
+from langchain import hub
+from langchain.chains import create_tagging_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.llms import Tongyi
@@ -80,10 +82,6 @@ def web_search(company_name: str,
 
     return search_results
 
-# company_name = '红岭创投'
-# # company_name = 'Theranos'
-# search_results = web_search(company_name, lang='en-US')
-
 
 def fetch_web_content(company_name: str,
                       urls: List[str],
@@ -126,54 +124,23 @@ def fetch_web_content(company_name: str,
     return web_content
 
 
-# web_content = fetch_web_content(company_name, [item['url'] for item in search_results])
-
-
 def template_by_lang(company_name: str,
                      lang: str):
     if lang == 'zh-CN':
         query = f'''{company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。
 '''
-        qa_template = '''利用下列信息回答后面的问题。如果你不知道答案就直接回答'不知道'，不要主观编造答案。
-最多使用5句话，回答尽量简洁。
-
-{context}
-
-问题：{question}
-
-有价值的回答：
-'''
         no_info = '没有足够的信息回答该问题'
     elif lang == 'zh-HK' or lang == 'zh-TW':
         query = f'''{company_name}有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。
-'''
-        qa_template = '''利用下列資訊回答後面的問題。如果你不知道答案就直接回答'不知道'，不要主觀編造答案。
-最多使用5句話，回答儘量簡潔。
-
-{context}
-
-問題：{question}
-
-有價值的回答：
 '''
         no_info = '沒有足夠的資訊回答該問題'
     else:
         query = f'''What is the negative news about {company_name}? 
 Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.
 '''
-        qa_template = '''Use the following pieces of context to answer the question at the end.
-If you don't know the answer, just say that you don't know, don't try to make up an answer.
-Use 5 sentences maximum and keep the answer as concise as possible.
-
-{context}
-
-Question: {question}
-
-Helpful Answer:
-'''
         no_info = 'No enough information to answer this.'
 
-    return {'query': query, 'qa_template': qa_template, 'no_info': no_info}
+    return {'query': query, 'no_info': no_info}
 
 
 def qa_over_docs(
@@ -183,12 +150,10 @@ def qa_over_docs(
         lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
         embedding_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
         llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
-        with_redis_data: bool = True,
+        with_redis_data: bool = False,
 ):
-    qa_template = template_by_lang(company_name, lang)['qa_template']
     no_info = template_by_lang(company_name, lang)['no_info']
-    if query is None:
-        query = template_by_lang(company_name, lang)['query']
+    query = query or template_by_lang(company_name, lang)['query']
 
     langchain_docs = []
     for item in web_content:
@@ -250,21 +215,21 @@ def qa_over_docs(
 
     logger.info(f'Documents QA with provider {llm_provider}...')
     if llm_provider == 'Alibaba':
-        chat_llm = Tongyi(model_name='qwen-max', temperature=0)
+        llm = Tongyi(model_name='qwen-max', temperature=0)
     elif llm_provider == 'OpenAI':
-        chat_llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
+        llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
     elif llm_provider == 'AzureOpenAI':
-        chat_llm = AzureChatOpenAI(azure_deployment=os.getenv(
+        llm = AzureChatOpenAI(azure_deployment=os.getenv(
             'AZURE_OPENAI_LLM_DEPLOY'), temperature=0)
     else:
         logger.error(f'LLM provider {llm_provider} is not supported.')
         return
 
-    rag_prompt = ChatPromptTemplate.from_template(qa_template)
+    rag_prompt = hub.pull("rlm/rag-prompt")
     rag_chain = (
         {'context': mmr_retriever, 'question': RunnablePassthrough()}
         | rag_prompt
-        | chat_llm
+        | llm
         | StrOutputParser()
     )
     try:
@@ -280,8 +245,71 @@ def qa_over_docs(
         }
 
 
-# qa = qa_over_docs('Theranos', lang='zh-CN', llm_provider='AzureOpenAI')
+def tagging_over_docs(company_name: str,
+        web_content: List[Dict],
+        lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+        llm_provider: str = 'AzureOpenAI'
+):
+    if lang == 'en-US':
+        schema = {
+            'properties': {
+                'suspected of financial crimes': {
+                    'type': 'string',
+                    'enum': ['suspect', 'unsuspect'],
+                    'description': f'determine whether the company {company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime',
+                },
+                'types of suspected financial crimes': {
+                    'type': 'string',
+                    'enum': ['Not Suspected', 'Financial Fraud', 'Counterfeiting Currency/Financial Instruments', 'Illegal Absorption of Public Deposits', 'Money Laundering', 'Insider Trading', 'Manipulation of Securities Markets', 'Other financial crime types'],
+                    'description': f'Describes the specific type of financial crime {company_name} is suspected of committing, or returns the type "not suspected" if not suspected',
+                },
+                'probability': {
+                    'type': 'string',
+                    'enum': ['low', 'medium', 'high'],
+                    'description': f'describes the probability that the company {company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime',
+                },
+            },
+            'required': ['suspected of financial crimes', 'types of suspected financial crimes', 'probability'],
+        }
+    elif lang == 'zh-CN':
+        schema = {
+            'properties': {
+                '是否涉嫌金融犯罪': {
+                    'type': 'string',
+                    'enum': ['涉嫌', '不涉嫌'],
+                    'description': f'判断{company_name}这家公司是否涉嫌金融犯罪，这里特指金融犯罪而不是其它的犯罪类型',
+                },
+                '涉嫌金融犯罪类型': {
+                    'type': 'string',
+                    'enum': ['不涉嫌', '金融诈骗', '伪造货币/金融票据', '非法吸收公众存款', '洗钱', '内幕交易', '操纵证券市场', '其它金融犯罪'],
+                    'description': f'描述{company_name}涉嫌的金融犯罪具体类型，如果不涉嫌则返回类型"不涉嫌"',
+                },
+                '概率': {
+                    'type': 'string',
+                    'enum': ['低', '中', '高'],
+                    'description': f'描述{company_name}涉嫌金融犯罪的概率，这里特指金融犯罪而不是其它的犯罪类型',
+                },
+            },
+            'required': ['是否涉嫌金融犯罪', '涉嫌金融犯罪类型', '概率'],
+        }
+    
+    if llm_provider == 'Alibaba':
+        llm = Tongyi(model_name='qwen-max', temperature=0)
+    elif llm_provider == 'OpenAI':
+        llm = ChatOpenAI(model_name='gpt-3.5-turbo', temperature=0)
+    elif llm_provider == 'AzureOpenAI':
+        llm = AzureChatOpenAI(azure_deployment=os.getenv(
+            'AZURE_OPENAI_LLM_DEPLOY'), temperature=0)
+    else:
+        logger.error(f'LLM provider {llm_provider} is not supported.')
+        return
+    
+    chain = create_tagging_chain(schema, llm)
+    tags = []
+    for doc in [item['text'] for item in web_content]:
+        tags.append(chain.invoke(doc))
 
+    return tags
 
 if __name__ == '__main__':
     # Proj settings
@@ -289,18 +317,22 @@ if __name__ == '__main__':
     # COMPANY_NAME = '红岭创投'
     # COMPANY_NAME = '东方甄选'
     # COMPANY_NAME = '恒大财富'
-    COMPANY_NAME = '鸿博股份'
+    # COMPANY_NAME = '鸿博股份'
     # COMPANY_NAME = '平安银行'
     # COMPANY_NAME = 'Theranos'
     # COMPANY_NAME = 'Bridge Water'
-    # COMPANY_NAME = 'SAS Institute'
+    COMPANY_NAME = 'SAS Institute'
     # COMPANY_NAME = 'Apple Inc.'
     SEARCH_ENGINE = 'Bing'
-    LANG = 'zh-CN'
-    LLM_PROVIDER = 'Alibaba'
-    EMBEDDING_PROVIDER = 'HuggingFace'
+    # SEARCH_SUFFIX = '负面新闻'
+    SEARCH_SUFFIX = 'negative news'
+    # LANG = 'zh-CN'
+    LANG = 'en-US'
+    LLM_PROVIDER = 'AzureOpenAI'
+    EMBEDDING_PROVIDER = 'AzureOpenAI'
 
     search_results = web_search(company_name=COMPANY_NAME,
+                                search_suffix=SEARCH_SUFFIX,
                                 search_engine=SEARCH_ENGINE,
                                 num_results=10,
                                 lang=LANG)
@@ -309,13 +341,19 @@ if __name__ == '__main__':
                                     urls=[item['url']
                                           for item in search_results],
                                     lang=LANG,
-                                    save_to_redis=True)
+                                    save_to_redis=False)
 
-    qa = qa_over_docs(company_name=COMPANY_NAME,
-                      web_content=web_content,
-                      lang=LANG,
-                      llm_provider=LLM_PROVIDER,
-                      embedding_provider=EMBEDDING_PROVIDER,
-                      with_redis_data=False)
-    if qa:
-        pprint.pprint(qa, compact=True)
+    # qa = qa_over_docs(company_name=COMPANY_NAME,
+    #                   web_content=web_content,
+    #                   lang=LANG,
+    #                   llm_provider=LLM_PROVIDER,
+    #                   embedding_provider=EMBEDDING_PROVIDER,
+    #                   with_redis_data=False)
+    # if qa:
+    #     pprint.pprint(qa, compact=True)
+
+    tagging_over_docs(COMPANY_NAME,
+        web_content = web_content,
+        lang = LANG,  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+        llm_provider = 'AzureOpenAI'
+    )

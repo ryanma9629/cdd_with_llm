@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from cdd_with_llm import web_search, fetch_web_content, qa_over_docs
+from cdd_with_llm import web_search, fetch_web_content, qa_over_docs, tagging_over_docs
 
 
 app = FastAPI()
@@ -122,6 +122,26 @@ def fetch_web_content_sas(company_name: str,
 #         json.dump(qa, f)
 
 #     return sas_json_wrapper([qa])
+
+@app.get('/cdd_with_llm/tagging_over_docs')
+async def tagging_over_docs_sas(company_name: str,
+                                lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+                                llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+                                ):
+    encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+    filename = './db/' + encoded_name + '_web_content.json'
+    with open(filename, 'r') as f:
+        web_content = json.load(f)
+
+    tag = tagging_over_docs(company_name, web_content, lang, llm_provider)
+    if not os.path.exists('db'):
+        os.makedirs('db')
+    filename = './db/' + encoded_name + '_tag.json'
+
+    with open(filename, 'w') as f:
+        json.dump(tag, f)
+
+    return sas_json_wrapper(tag)
 
 
 @app.get('/cdd_with_llm/qa_over_docs')
