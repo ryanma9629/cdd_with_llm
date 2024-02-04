@@ -17,6 +17,7 @@ from apify_client import ApifyClient
 
 # from langchain import hub
 from langchain.prompts import PromptTemplate
+from langchain.callbacks import get_openai_callback
 from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
@@ -261,10 +262,13 @@ BULLET POINT SUMMARY:"""
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=4000, chunk_overlap=0)
         fca_tags = []
-        for doc in [item["text"] for item in self.web_contents]:
-            chunked_docs = splitter.split_text(doc)
-            # Use only the first chunk to save llm calls
-            fca_tags.append(tagging_chain.invoke(chunked_docs[0]))
+
+        with get_openai_callback() as cb:
+            for doc in [item["text"] for item in self.web_contents]:
+                chunked_docs = splitter.split_text(doc)
+                # Use only the first chunk to save llm calls
+                fca_tags.append(tagging_chain.invoke(chunked_docs[0]))
+            logger.info(f"{cb.total_tokens} tokens used")
 
         return [item['text'] for item in fca_tags]
         # return fca_tags
@@ -309,7 +313,10 @@ BULLET POINT SUMMARY:"""
                                                combine_prompt=combine_prompt_template,
                                                )
         try:
-            return summarize_chain.invoke(chunked_docs)['output_text']
+            with get_openai_callback() as cb:
+                summary = summarize_chain.invoke(chunked_docs)['output_text']
+                logger.info(f"{cb.total_tokens} tokens used")
+            return summary
         except ValueError:
             return "I can\'t make a summary"
 
@@ -383,7 +390,11 @@ BULLET POINT SUMMARY:"""
             | StrOutputParser()
         )
         try:
-            return {"query": query, "answer": rag_chain.invoke(query)}
+            with get_openai_callback() as cb:
+                answer = rag_chain.invoke(query)
+                logger.info(f"{cb.total_tokens} tokens used")
+                return {"query": query, "answer": answer}
+            
         except ValueError:  # Occurs when retriever returns nothing
             return {"query": query, "answer": self.no_info}
 
@@ -391,8 +402,8 @@ BULLET POINT SUMMARY:"""
 if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     # cdd = CDDwithLLM("红岭创投", lang="zh-CN")
-    cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
-    # cdd = CDDwithLLM("Theranos", lang="en-US")
+    # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
+    cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     cdd.web_search(num_results=5, search_engine="Google")
