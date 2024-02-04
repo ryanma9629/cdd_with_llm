@@ -10,6 +10,7 @@ import pprint
 from typing import Optional, List, Dict
 
 import redis
+import chromadb
 from chromadb.config import Settings
 
 from apify_client import ApifyClient
@@ -29,11 +30,12 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings, AzureChatOpenAI, AzureOpenAIEmbeddings
 
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-formatter = logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
 
 
 class CDDwithLLM:
@@ -355,15 +357,18 @@ BULLET POINT SUMMARY:"""
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=2000, chunk_overlap=200)
         chunked_docs = splitter.split_documents(langchain_docs)
+        # print(f"chunked docs count: {len(chunked_docs)}")
 
         logger.info(
             f"Documents embedding with provider {embedding_provider}...")
-
-        langchain_chroma = Chroma(collection_name="Ephemeral_Collection_for_QA",
-                                  client_settings=Settings(
-                                      anonymized_telemetry=False),
+        
+        chroma_client = chromadb.EphemeralClient(Settings(anonymized_telemetry=False, allow_reset=True))
+        chroma_client.reset()
+        langchain_chroma = Chroma(client=chroma_client,
                                   embedding_function=embedding)
         langchain_chroma.add_documents(chunked_docs)
+        # print(f"chroma collection count: {langchain_chroma._collection.count()}")
+
         mmr_retriever = langchain_chroma.as_retriever(search_type="mmr",
                                                       search_kwargs={"k": min(3, len(chunked_docs)),
                                                                      "fetch_k": min(5, len(chunked_docs))})
@@ -384,12 +389,16 @@ BULLET POINT SUMMARY:"""
 
 
 if __name__ == "__main__":
-    cdd = CDDwithLLM("平安金融壹账通", lang="zh-CN")
+    # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
+    # cdd = CDDwithLLM("红岭创投", lang="zh-CN")
+    cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
     # cdd = CDDwithLLM("Theranos", lang="en-US")
+    # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
-    cdd.web_search(num_results=5)
+    cdd.web_search(num_results=5, search_engine="Google")
     cdd.contents_from_crawler()
     cdd.contents_to_redis()
+
     cdd.contents_from_redis()
     tags = cdd.fca_tagging()
     pprint.pprint(tags)
