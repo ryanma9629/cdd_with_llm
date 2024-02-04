@@ -261,7 +261,7 @@ def tagging_over_docs(company_name: str,
                 },
                 'types of suspected financial crimes': {
                     'type': 'string',
-                    'enum': ['Not Suspected', 'Financial Fraud', 'Counterfeiting Currency/Financial Instruments', 'Illegal Absorption of Public Deposits', 'Illegal Granting of Loans', 'Money Laundering', 'Insider Trading', 'Manipulation of Securities Markets'],
+                    'enum': ['Not Suspected', 'Financial Fraud', 'Counterfeiting Currency/Financial Instruments', 'Illegal Absorption of Public Deposits', 'Money Laundering', 'Insider Trading', 'Manipulation of Securities Markets'],
                     'description': f'Describes the specific type of financial crime {company_name} is suspected of committing, or returns the type "not suspected" if not suspected',
                 },
                 'probability': {
@@ -282,7 +282,7 @@ def tagging_over_docs(company_name: str,
                 },
                 '涉嫌金融犯罪类型': {
                     'type': 'string',
-                    'enum': ['不涉嫌', '金融诈骗', '伪造货币/金融票据', '非法吸收公众存款', '违法发放贷款', '洗钱', '内幕交易', '操纵证券市场'],
+                    'enum': ['不涉嫌', '金融诈骗', '伪造货币/金融票据', '非法吸收公众存款', '洗钱', '内幕交易', '操纵证券市场'],
                     'description': f'描述{company_name}涉嫌的金融犯罪具体类型，如果不涉嫌则返回类型"不涉嫌"',
                 },
                 '概率': {
@@ -337,7 +337,7 @@ if __name__ == '__main__':
     # lang = 'en-US'
     llm_provider = 'AzureOpenAI'
     embedding_provider = 'AzureOpenAI'
-    num_results = 10
+    num_results = 5
 
     search_results = web_search(company_name=company_name,
                                 search_suffix=search_suffix,
@@ -351,14 +351,14 @@ if __name__ == '__main__':
                                     lang=lang,
                                     save_to_redis=False)
 
-    # qa = qa_over_docs(company_name=company_name,
-    #                   web_content=web_content,
-    #                   lang=LANG,
-    #                   llm_provider=LLM_PROVIDER,
-    #                   embedding_provider=EMBEDDING_PROVIDER,
-    #                   with_redis_data=False)
-    # if qa:
-    #     pprint.pprint(qa, compact=True)
+    qa = qa_over_docs(company_name=company_name,
+                      web_content=web_content,
+                      lang=lang,
+                      llm_provider=llm_provider,
+                      embedding_provider=embedding_provider,
+                      with_redis_data=False)
+    if qa:
+        pprint.pprint(qa, compact=True)
 
     tags = tagging_over_docs(company_name,
                              web_content=web_content,

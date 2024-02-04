@@ -1,10 +1,10 @@
 import logging
 import os
 import sys
-
 if sys.platform == "linux":
     __import__("pysqlite3")
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+import json
 import uuid
 import pprint
 from typing import Optional, List, Dict
@@ -14,8 +14,9 @@ from chromadb.config import Settings
 
 from apify_client import ApifyClient
 
-from langchain import hub
-from langchain.chains import create_tagging_chain
+# from langchain import hub
+from langchain.prompts import PromptTemplate
+from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.llms import Tongyi
@@ -39,16 +40,74 @@ class CDDwithLLM:
     def template_by_lang(self):
         if self.lang == "zh-CN":
             self.default_search_suffix = "负面新闻"
-            self.default_query = f"""{self.company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。"""
+            self.qa_template = """利用下面的上下文回答后面的问题。
+如果不知道答案，就说不知道，不要试图编造答案。
+答案尽量简洁。
+
+{context}
+
+问题：{question}
+
+有用的答案："""
+            self.qa_default_query = f"""{self.company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。"""
             self.qa_no_info = "没有足够的信息回答该问题"
+            self.summary_map = """请写出以下内容的简明摘要：
+
+"{text}"
+
+简明摘要："""
+            self.summary_combine = """简要概括三个反引号之间文字，以要点形式返回你的回复，每个要点独立一行，涵盖文本的要点：
+
+```{text}```
+
+要点："""
         elif self.lang == "zh-HK" or self.lang == "zh-TW":
             self.default_search_suffix = "負面新聞"
-            self.default_query = f"""{self.company_name}有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。"""
+            self.qa_template = """利用下面的上下文回答後面的問題。
+如果不知道答案，就說不知道，不要試圖編造答案。
+答案儘量簡潔。
+
+{context}
+
+問題：{question}
+
+有用的答案："""
+            self.qa_default_query = f"""{self.company_name}有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。"""
             self.qa_no_info = "沒有足夠的資訊回答該問題"
+            self.summary_map = """請寫出以下內容的簡明摘要：
+
+"{text}"
+
+簡明摘要："""
+            self.summary_combine = """簡要概括三個反引號之間文字，以要點形式返回你的回復，每個要點獨立一行，涵蓋文本的要點：
+
+```{text}```
+
+要點："""
         else:
             self.default_search_suffix = "negative news"
-            self.default_query = f"""What is the negative news about {self.company_name}? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from."""
+            self.qa_template = """Use the following pieces of context to answer the question at the end.
+If you don't know the answer, just say that you don't know, don't try to make up an answer.
+Keep the answer as concise as possible.
+
+{context}
+
+Question: {question}
+
+Helpful Answer:"""
+            self.qa_default_query = f"""What is the negative news about {self.company_name}? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from."""
             self.qa_no_info = "No enough information to answer"
+            self.summary_map = """Write a concise summary of the following:
+
+"{text}"
+
+CONCISE SUMMARY:"""
+            self.summary_combine = """Write a concise summary of the following text delimited by triple backquotes.
+Return your response in bullet points which covers the key points of the text.
+
+```{text}```
+
+BULLET POINT SUMMARY:"""
         self.default_tagging_schema = {
             "properties": {
                 "suspected of financial crimes": {
@@ -124,9 +183,8 @@ class CDDwithLLM:
         self.search_results = [{"title": item["title"], "snippet": item["snippet"],
                                 "url": item["link"]} for item in raw_search_results]
 
-    def fetch_web_contents(self,
-                           min_text_length: int = 100,
-                           save_to_redis: bool = True) -> None:
+    def contents_from_crawler(self,
+                              min_text_length: int = 100) -> None:
         logger.info("Getting detailed web contents from each url...")
         apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
         actor_call = apify_client.actor("apify/website-content-crawler").call(
@@ -141,14 +199,46 @@ class CDDwithLLM:
         )
         apify_dataset = (apify_client.dataset(
             actor_call["defaultDatasetId"]).list_items().items)
-        self.web_contents = [item for item in apify_dataset if item["crawl"]
+        self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
                              ["httpStatusCode"] < 300 and len(item["text"]) >= min_text_length]
-        if save_to_redis:
-            logger.info("Save fetched web contents to redis...")
-            hname = "cdd_with_llm:web_contents:" + self.encoded_name + ":" + self.lang
-            for item in self.web_contents:
-                self.redis_client.hset(hname, item["url"], item["text"])
-            self.redis_client.close()
+
+    def contents_from_file(self,
+                           path: Optional[str] = "./store",
+                           base_name: Optional[str] = None) -> None:
+        base_name = base_name or self.encoded_name + "_web_contents.json"
+        logger.info(f"Loading web contents from {base_name}...")
+        with open(os.path.join(path, base_name), 'r') as f:
+            self.web_contents = json.load(f)
+
+    def contents_to_file(self,
+                         path: Optional[str] = "./store",
+                         base_name: Optional[str] = None) -> None:
+        if not os.path.exists(path):
+            os.makedirs(path)
+        base_name = base_name or self.encoded_name + "_web_contents.json"
+        logger.info(f"Saving web contents to {base_name}...")
+        with open(os.path.join(path, base_name), 'w') as f:
+            json.dump(self.web_contents, f)
+
+    def contents_from_redis(self, field_name: Optional[str] = None) -> None:
+        field_name = field_name or "cdd_with_llm:web_contents:" + \
+            self.encoded_name + ":" + self.lang
+        logger.info(
+            f"Loading web contents from redis with field name {field_name}...")
+        redis_data = self.redis_client.hgetall(field_name)
+        self.redis_client.close()
+        for key in redis_data:
+            self.web_contents.append(
+                {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
+
+    def contents_to_redis(self, field_name: Optional[str] = None) -> None:
+        field_name = field_name or "cdd_with_llm:web_contents:" + \
+            self.encoded_name + ":" + self.lang
+        logger.info(
+            f"Saving web contents to redis with field name {field_name}...")
+        for item in self.web_contents:
+            self.redis_client.hset(field_name, item["url"], item["text"])
+        self.redis_client.close()
 
     def fca_tagging(self,
                     tagging_schema: Optional[Dict] = None,
@@ -175,13 +265,51 @@ class CDDwithLLM:
             fca_tags.append(tagging_chain.invoke(chunked_docs[0]))
 
         return [item['text'] for item in fca_tags]
+        # return fca_tags
 
-    def summarization(self, llm_provider: str = "AzureOpenAI") -> str:
-        # langchain_docs = []
-        # for item in self.web_contents:
-        #     langchain_docs.append(
-        #         Document(page_content=item["text"], metadata={"source": item["url"]}))
-        pass
+    def summarization(self, 
+                      with_historial_data: bool = False,
+                      llm_provider: str = "AzureOpenAI") -> str:
+        if llm_provider == "Alibaba":
+            llm = Tongyi(model_name="qwen-max", temperature=0)
+        elif llm_provider == "OpenAI":
+            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
+        elif llm_provider == "AzureOpenAI":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY"), temperature=0)
+        else:
+            raise ValueError(f"LLM provider {llm_provider} is not supported.")
+        
+        logger.info(f"Documents summarrization with LLM provider {llm_provider}...")
+        langchain_docs = []
+        for item in self.web_contents:
+            langchain_docs.append(
+                Document(page_content=item["text"], metadata={"source": item["url"]}))
+        if with_historial_data:
+            hname = "cdd_with_llm:web_contents:" + self.encoded_name + ":" + self.lang
+            historical_data = self.redis_client.hgetall(hname)
+            self.redis_client.close()
+            for key in historical_data:
+                langchain_docs.append(Document(page_content=historical_data[key].decode(
+                    "UTF-8"), metadata={"source": key.decode("UTF-8")}))
+        
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=4000, chunk_overlap=0)
+        chunked_docs = splitter.split_documents(langchain_docs)
+
+        # map_prompt = hub.pull("rlm/map-prompt")
+        # reduce_prompt = hub.pull("rlm/reduce-prompt")
+        map_prompt_template = PromptTemplate(template=self.summary_map, input_variables=["text"])
+        combine_prompt_template = PromptTemplate(template=self.summary_combine, input_variables=["text"])
+        summarize_chain = load_summarize_chain(llm, 
+                                               chain_type="map_reduce",
+                                               map_prompt=map_prompt_template,
+                                               combine_prompt=combine_prompt_template,
+                                               )
+        try:
+            return summarize_chain.invoke(chunked_docs)['output_text']
+        except ValueError:
+            return "I can\'t make a summary"
 
 
     def qa(self,
@@ -211,7 +339,7 @@ class CDDwithLLM:
         else:
             raise ValueError(f"LLM provider {llm_provider} is not supported.")
 
-        query = query or self.default_query
+        query = query or self.qa_default_query
         langchain_docs = []
         for item in self.web_contents:
             langchain_docs.append(
@@ -225,7 +353,7 @@ class CDDwithLLM:
                     "UTF-8"), metadata={"source": key.decode("UTF-8")}))
 
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=100)
+            chunk_size=2000, chunk_overlap=200)
         chunked_docs = splitter.split_documents(langchain_docs)
 
         logger.info(
@@ -241,7 +369,8 @@ class CDDwithLLM:
                                                                      "fetch_k": min(5, len(chunked_docs))})
 
         logger.info(f"Documents QA with LLM provider {llm_provider}...")
-        rag_prompt = hub.pull("rlm/rag-prompt")
+        # rag_prompt = hub.pull("rlm/rag-prompt")
+        rag_prompt = PromptTemplate.from_template(self.qa_template)
         rag_chain = (
             {"context": mmr_retriever, "question": RunnablePassthrough()}
             | rag_prompt
@@ -249,17 +378,22 @@ class CDDwithLLM:
             | StrOutputParser()
         )
         try:
-            answer = rag_chain.invoke(query)
-            return {"query": query, "answer": answer}
+            return {"query": query, "answer": rag_chain.invoke(query)}
         except ValueError:  # Occurs when retriever returns nothing
             return {"query": query, "answer": self.no_info}
 
 
 if __name__ == "__main__":
-    cdd = CDDwithLLM("平安银行", lang="zh-CN")
-    cdd.web_search()
-    cdd.fetch_web_contents()
-    fca_tagging = cdd.fca_tagging()
-    pprint.pprint(fca_tagging)
+    cdd = CDDwithLLM("平安金融壹账通", lang="zh-CN")
+    # cdd = CDDwithLLM("Theranos", lang="en-US")
+    # cdd = CDDwithLLM("SAS Institute", lang="en-US")
+    cdd.web_search(num_results=5)
+    cdd.contents_from_crawler()
+    cdd.contents_to_redis()
+    cdd.contents_from_redis()
+    tags = cdd.fca_tagging()
+    pprint.pprint(tags)
+    summary = cdd.summarization()
+    pprint.pprint(summary)
     qa = cdd.qa()
     pprint.pprint(qa)
