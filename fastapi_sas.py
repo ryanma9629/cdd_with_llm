@@ -50,14 +50,16 @@ async def web_search(company_name: str,
                      ):
     cdd = CDDwithLLM(company_name, lang)
     cdd.web_search(search_suffix, search_engine, num_results)
+    search_results = cdd.search_results
 
     if not os.path.exists('db'):
         os.makedirs('db')
     filename = './db/' + cdd.encoded_name + '_web_search.json'
     with open(filename, 'w') as f:
-        json.dump(cdd.search_results, f)
+        json.dump(search_results, f)
 
-    return sas_json_wrapper(cdd.search_results)
+    del cdd
+    return sas_json_wrapper(search_results)
 
 
 @app.get('/cdd_with_llm/fetch_web_content')
@@ -76,11 +78,14 @@ def fetch_web_contents(company_name: str,
     if save_to_redis:
         cdd.contents_to_redis()
 
+    web_contents = cdd.web_contents
+
     filename = './db/' + cdd.encoded_name + '_web_contents.json'
     with open(filename, 'w') as f:
-        json.dump(cdd.web_contents, f)
+        json.dump(web_contents, f)
 
-    return sas_json_wrapper(cdd.web_contents)
+    del cdd
+    return sas_json_wrapper(web_contents)
 
 
 @app.get('/cdd_with_llm/tagging_over_docs')
@@ -100,28 +105,31 @@ async def fca_tagging(company_name: str,
     with open(filename, 'w') as f:
         json.dump(tags, f)
 
+    del cdd
     return sas_json_wrapper(tags)
+
 
 @app.get('/cdd_with_llm/sum_over_docs')
 async def summarization(company_name: str,
-             lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-             llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
-             with_redis_data: bool = False
-             ):
+                        lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+                        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
+                        with_redis_data: bool = False
+                        ):
 
     cdd = CDDwithLLM(company_name, lang)
     filename = './db/' + cdd.encoded_name + '_web_contents.json'
     with open(filename, 'r') as f:
         cdd.web_contents = json.load(f)
 
-    summary = cdd.summarization(with_historial_data=with_redis_data, llm_provider=llm_provider)
+    summary = cdd.summarization(
+        with_historial_data=with_redis_data, llm_provider=llm_provider)
 
     filename = './db/' + cdd.encoded_name + '_summary.json'
     with open(filename, 'w') as f:
         json.dump(summary, f)
 
+    del cdd
     return sas_json_wrapper(summary)
-
 
 
 @app.get('/cdd_with_llm/qa_over_docs')
@@ -146,6 +154,7 @@ async def qa(company_name: str,
     with open(filename, 'w') as f:
         json.dump(qa, f)
 
+    del cdd
     return sas_json_wrapper(qa)
 
 
