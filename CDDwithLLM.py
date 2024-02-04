@@ -273,7 +273,7 @@ BULLET POINT SUMMARY:"""
         return [item['text'] for item in fca_tags]
         # return fca_tags
 
-    def summarization(self, 
+    def summarization(self,
                       with_historial_data: bool = False,
                       llm_provider: str = "AzureOpenAI") -> str:
         if llm_provider == "Alibaba":
@@ -285,8 +285,9 @@ BULLET POINT SUMMARY:"""
                 "AZURE_OPENAI_LLM_DEPLOY"), temperature=0)
         else:
             raise ValueError(f"LLM provider {llm_provider} is not supported.")
-        
-        logger.info(f"Documents summarrization with LLM provider {llm_provider}...")
+
+        logger.info(
+            f"Documents summarrization with LLM provider {llm_provider}...")
         langchain_docs = []
         for item in self.web_contents:
             langchain_docs.append(
@@ -298,16 +299,18 @@ BULLET POINT SUMMARY:"""
             for key in historical_data:
                 langchain_docs.append(Document(page_content=historical_data[key].decode(
                     "UTF-8"), metadata={"source": key.decode("UTF-8")}))
-        
+
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=4000, chunk_overlap=0)
         chunked_docs = splitter.split_documents(langchain_docs)
 
         # map_prompt = hub.pull("rlm/map-prompt")
         # reduce_prompt = hub.pull("rlm/reduce-prompt")
-        map_prompt_template = PromptTemplate(template=self.summary_map, input_variables=["text"])
-        combine_prompt_template = PromptTemplate(template=self.summary_combine, input_variables=["text"])
-        summarize_chain = load_summarize_chain(llm, 
+        map_prompt_template = PromptTemplate(
+            template=self.summary_map, input_variables=["text"])
+        combine_prompt_template = PromptTemplate(
+            template=self.summary_combine, input_variables=["text"])
+        summarize_chain = load_summarize_chain(llm,
                                                chain_type="map_reduce",
                                                map_prompt=map_prompt_template,
                                                combine_prompt=combine_prompt_template,
@@ -319,7 +322,6 @@ BULLET POINT SUMMARY:"""
             return summary
         except ValueError:
             return "I can\'t make a summary"
-
 
     def qa(self,
            query: Optional[str] = None,
@@ -368,8 +370,9 @@ BULLET POINT SUMMARY:"""
 
         logger.info(
             f"Documents embedding with provider {embedding_provider}...")
-        
-        chroma_client = chromadb.EphemeralClient(Settings(anonymized_telemetry=False, allow_reset=True))
+
+        chroma_client = chromadb.EphemeralClient(
+            Settings(anonymized_telemetry=False, allow_reset=True))
         chroma_client.reset()
         langchain_chroma = Chroma(client=chroma_client,
                                   embedding_function=embedding)
@@ -394,7 +397,7 @@ BULLET POINT SUMMARY:"""
                 answer = rag_chain.invoke(query)
                 logger.info(f"{cb.total_tokens} tokens used")
                 return {"query": query, "answer": answer}
-            
+
         except ValueError:  # Occurs when retriever returns nothing
             return {"query": query, "answer": self.no_info}
 

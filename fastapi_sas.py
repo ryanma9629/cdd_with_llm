@@ -1,6 +1,5 @@
 import json
 import os
-import uuid
 from typing import Optional, List, Dict
 
 from fastapi import FastAPI
@@ -112,7 +111,7 @@ async def fca_tagging(company_name: str,
 @app.get('/cdd_with_llm/sum_over_docs')
 async def summarization(company_name: str,
                         lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-                        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
+                        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
                         with_redis_data: bool = False
                         ):
 
@@ -136,9 +135,8 @@ async def summarization(company_name: str,
 async def qa(company_name: str,
              lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
              query: Optional[str] = None,
-             # 'Alibaba', 'Baidu', 'HuggingFace', 'OpenAI', 'AzureOpenAI'
-             embedding_provider: str = 'AzureOpenAI',
-             llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'Baidu', 'OpenAI', 'AzureOpenAI'
+             embedding_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+             llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
              with_redis_data: bool = False
              ):
 
