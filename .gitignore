@@ -9,5 +9,5 @@
 *.log
 *.pdf
 *.pem
-# env.sh
+env.sh
 nohup.out
