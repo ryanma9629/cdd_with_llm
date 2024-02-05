@@ -143,15 +143,14 @@ BULLET POINT SUMMARY:"""
         self.search_results = []
         self.web_contents = []
         self.encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-        self.redis_client = redis.Redis(host=os.getenv("REDIS_HOST"),
-                                        port=os.getenv("REDIS_PORT"),
-                                        username=os.getenv("REDIS_USER"),
-                                        password=os.getenv("REDIS_PASSWORD"),
-                                        )
+        # self.redis_client = redis.Redis(host=os.getenv("REDIS_HOST"),
+        #                                 port=os.getenv("REDIS_PORT"),
+        #                                 username=os.getenv("REDIS_USER"),
+        #                                 password=os.getenv("REDIS_PASSWORD"),
+        #                                 )
         self.template_by_lang()
+        self.redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
 
-    # def __del__(self):
-    #     self.redis_client.close()
 
     def web_search(self,
                    search_suffix: Optional[str] = None,
@@ -428,10 +427,10 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     # cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
-    cdd = CDDwithLLM("Theranos", lang="en-US")
+    # cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
-    # cdd = CDDwithLLM("SAS Institute", lang="en-US")
-    cdd.web_search(num_results=5, search_engine="Google")
+    cdd = CDDwithLLM("SAS Institute", lang="en-US")
+    cdd.web_search(num_results=5, search_engine="Bing")
     cdd.contents_from_crawler()
     cdd.contents_to_redis()
 
