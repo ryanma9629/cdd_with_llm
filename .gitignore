@@ -3,6 +3,7 @@
 /chroma
 /qa
 /db
+/store
 .idea
 *.py[cod]
 *.log

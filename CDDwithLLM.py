@@ -17,7 +17,6 @@ from apify_client import ApifyClient
 
 # from langchain import hub
 from langchain.prompts import PromptTemplate
-from langchain.callbacks import get_openai_callback
 from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
@@ -25,6 +24,7 @@ from langchain_community.llms import Tongyi
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
+from langchain_community.callbacks import get_openai_callback
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
@@ -186,6 +186,24 @@ BULLET POINT SUMMARY:"""
         self.search_results = [{"title": item["title"], "snippet": item["snippet"],
                                 "url": item["link"]} for item in raw_search_results]
 
+    def search_to_file(self,
+                       path: Optional[str] = "./store/",
+                       base_name: Optional[str] = None) -> None:
+        if not os.path.exists(path):
+            os.makedirs(path)
+        base_name = base_name or self.encoded_name + "_search_results.json"
+        logger.info(f"Saving search results to {base_name}...")
+        with open(os.path.join(path, base_name), 'w') as f:
+            json.dump(self.search_results, f)
+
+    def search_from_file(self,
+                         path: Optional[str] = "./store/",
+                         base_name: Optional[str] = None) -> None:
+        base_name = base_name or self.encoded_name + "_search_results.json"
+        logger.info(f"Loading search results from {base_name}...")
+        with open(os.path.join(path, base_name), 'r') as f:
+            self.search_results = json.load(f)
+
     def contents_from_crawler(self,
                               min_text_length: int = 100) -> None:
         logger.info("Getting detailed web contents from each url...")
@@ -206,7 +224,7 @@ BULLET POINT SUMMARY:"""
                              ["httpStatusCode"] < 300 and len(item["text"]) >= min_text_length]
 
     def contents_from_file(self,
-                           path: Optional[str] = "./store",
+                           path: Optional[str] = "./store/",
                            base_name: Optional[str] = None) -> None:
         base_name = base_name or self.encoded_name + "_web_contents.json"
         logger.info(f"Loading web contents from {base_name}...")
@@ -214,7 +232,7 @@ BULLET POINT SUMMARY:"""
             self.web_contents = json.load(f)
 
     def contents_to_file(self,
-                         path: Optional[str] = "./store",
+                         path: Optional[str] = "./store/",
                          base_name: Optional[str] = None) -> None:
         if not os.path.exists(path):
             os.makedirs(path)
@@ -224,10 +242,12 @@ BULLET POINT SUMMARY:"""
             json.dump(self.web_contents, f)
 
     def contents_from_redis(self, field_name: Optional[str] = None) -> None:
+        # field_name = field_name or "cdd_with_llm:web_contents:" + \
+        #     self.encoded_name + ":" + self.lang
         field_name = field_name or "cdd_with_llm:web_contents:" + \
-            self.encoded_name + ":" + self.lang
+            self.encoded_name
         logger.info(
-            f"Loading web contents from redis with field name {field_name}...")
+            f"Loading web contents from redis with field name {self.encoded_name}...")
         redis_data = self.redis_client.hgetall(field_name)
         self.redis_client.close()
         for key in redis_data:
@@ -235,10 +255,12 @@ BULLET POINT SUMMARY:"""
                 {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
 
     def contents_to_redis(self, field_name: Optional[str] = None) -> None:
+        # field_name = field_name or "cdd_with_llm:web_contents:" + \
+        #     self.encoded_name + ":" + self.lang
         field_name = field_name or "cdd_with_llm:web_contents:" + \
-            self.encoded_name + ":" + self.lang
+            self.encoded_name
         logger.info(
-            f"Saving web contents to redis with field name {field_name}...")
+            f"Saving web contents to redis with field name {self.encoded_name}...")
         for item in self.web_contents:
             self.redis_client.hset(field_name, item["url"], item["text"])
         self.redis_client.close()
@@ -274,7 +296,7 @@ BULLET POINT SUMMARY:"""
         # return fca_tags
 
     def summarization(self,
-                      with_historial_data: bool = False,
+                    #   with_his_data: bool = False,
                       llm_provider: str = "AzureOpenAI") -> str:
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
@@ -292,13 +314,13 @@ BULLET POINT SUMMARY:"""
         for item in self.web_contents:
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
-        if with_historial_data:
-            hname = "cdd_with_llm:web_contents:" + self.encoded_name + ":" + self.lang
-            historical_data = self.redis_client.hgetall(hname)
-            self.redis_client.close()
-            for key in historical_data:
-                langchain_docs.append(Document(page_content=historical_data[key].decode(
-                    "UTF-8"), metadata={"source": key.decode("UTF-8")}))
+        # if with_his_data:
+        #     field_name = "cdd_with_llm:web_contents:" + self.encoded_name
+        #     historical_data = self.redis_client.hgetall(field_name)
+        #     self.redis_client.close()
+        #     for key in historical_data:
+        #         langchain_docs.append(Document(page_content=historical_data[key].decode(
+        #             "UTF-8"), metadata={"source": key.decode("UTF-8")}))
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=4000, chunk_overlap=0)
@@ -325,7 +347,7 @@ BULLET POINT SUMMARY:"""
 
     def qa(self,
            query: Optional[str] = None,
-           with_historial_data: bool = False,
+           with_his_data: bool = False,
            embedding_provider: str = "AzureOpenAI",
            llm_provider: str = "AzureOpenAI") -> Dict[str, str]:
         if embedding_provider == "Alibaba":
@@ -355,9 +377,9 @@ BULLET POINT SUMMARY:"""
         for item in self.web_contents:
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
-        if with_historial_data:
-            hname = "cdd_with_llm:web_contents:" + self.encoded_name + ":" + self.lang
-            historical_data = self.redis_client.hgetall(hname)
+        if with_his_data:
+            field_name = "cdd_with_llm:web_contents:" + self.encoded_name
+            historical_data = self.redis_client.hgetall(field_name)
             self.redis_client.close()
             for key in historical_data:
                 langchain_docs.append(Document(page_content=historical_data[key].decode(
