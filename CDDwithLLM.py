@@ -149,7 +149,7 @@ BULLET POINT SUMMARY:"""
         #                                 password=os.getenv("REDIS_PASSWORD"),
         #                                 )
         self.template_by_lang()
-        self.redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
+        
 
 
     def web_search(self,
@@ -247,8 +247,9 @@ BULLET POINT SUMMARY:"""
             self.encoded_name
         logger.info(
             f"Loading web contents from redis with field name {self.encoded_name}...")
-        redis_data = self.redis_client.hgetall(field_name)
-        self.redis_client.close()
+        redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
+        redis_data = redis_client.hgetall(field_name)
+        redis_client.close()
         for key in redis_data:
             self.web_contents.append(
                 {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
@@ -260,9 +261,10 @@ BULLET POINT SUMMARY:"""
             self.encoded_name
         logger.info(
             f"Saving web contents to redis with field name {self.encoded_name}...")
+        redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
         for item in self.web_contents:
-            self.redis_client.hset(field_name, item["url"], item["text"])
-        self.redis_client.close()
+            redis_client.hset(field_name, item["url"], item["text"])
+        redis_client.close()
 
     def fca_tagging(self,
                     tagging_schema: Optional[Dict] = None,
@@ -378,8 +380,9 @@ BULLET POINT SUMMARY:"""
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
         if with_his_data:
             field_name = "cdd_with_llm:web_contents:" + self.encoded_name
-            historical_data = self.redis_client.hgetall(field_name)
-            self.redis_client.close()
+            redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
+            historical_data = redis_client.hgetall(field_name)
+            redis_client.close()
             for key in historical_data:
                 langchain_docs.append(Document(page_content=historical_data[key].decode(
                     "UTF-8"), metadata={"source": key.decode("UTF-8")}))
