@@ -143,11 +143,6 @@ BULLET POINT SUMMARY:"""
         self.search_results = []
         self.web_contents = []
         self.encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-        # self.redis_client = redis.Redis(host=os.getenv("REDIS_HOST"),
-        #                                 port=os.getenv("REDIS_PORT"),
-        #                                 username=os.getenv("REDIS_USER"),
-        #                                 password=os.getenv("REDIS_PASSWORD"),
-        #                                 )
         self.template_by_lang()
         
 
