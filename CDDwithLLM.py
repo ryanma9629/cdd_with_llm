@@ -9,13 +9,11 @@ import uuid
 import pprint
 from typing import Optional, List, Dict
 
-import redis
+import pymongo
 import chromadb
 from chromadb.config import Settings
-
 from apify_client import ApifyClient
 
-# from langchain import hub
 from langchain.prompts import PromptTemplate
 from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -143,14 +141,7 @@ BULLET POINT SUMMARY:"""
         self.search_results = []
         self.web_contents = []
         self.encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-        # self.redis_client = redis.Redis(host=os.getenv("REDIS_HOST"),
-        #                                 port=os.getenv("REDIS_PORT"),
-        #                                 username=os.getenv("REDIS_USER"),
-        #                                 password=os.getenv("REDIS_PASSWORD"),
-        #                                 )
         self.template_by_lang()
-        
-
 
     def web_search(self,
                    search_suffix: Optional[str] = None,
@@ -240,31 +231,58 @@ BULLET POINT SUMMARY:"""
         with open(os.path.join(path, base_name), 'w') as f:
             json.dump(self.web_contents, f)
 
-    def contents_from_redis(self, field_name: Optional[str] = None) -> None:
-        # field_name = field_name or "cdd_with_llm:web_contents:" + \
-        #     self.encoded_name + ":" + self.lang
-        field_name = field_name or "cdd_with_llm:web_contents:" + \
-            self.encoded_name
-        logger.info(
-            f"Loading web contents from redis with field name {self.encoded_name}...")
-        redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
-        redis_data = redis_client.hgetall(field_name)
-        redis_client.close()
-        for key in redis_data:
-            self.web_contents.append(
-                {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
+    # def contents_from_redis(self, field_name: Optional[str] = None) -> None:
+    #     field_name = field_name or "cdd_with_llm:web_contents:" + \
+    #         self.encoded_name
+    #     logger.info(
+    #         f"Loading web contents from redis with field name {self.encoded_name}...")
+    #     redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
+    #     redis_data = redis_client.hgetall(field_name)
+    #     redis_client.close()
+    #     for key in redis_data:
+    #         self.web_contents.append(
+    #             {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
 
-    def contents_to_redis(self, field_name: Optional[str] = None) -> None:
-        # field_name = field_name or "cdd_with_llm:web_contents:" + \
-        #     self.encoded_name + ":" + self.lang
-        field_name = field_name or "cdd_with_llm:web_contents:" + \
-            self.encoded_name
-        logger.info(
-            f"Saving web contents to redis with field name {self.encoded_name}...")
-        redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
+    def contents_from_mongo(self) -> None:
+        logging.info("Loading web contents from MongoDB...")
+        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
+        collection = client.cdd_with_llm["web_contents"]
+        cursor = collection.find({
+            "company_name": self.company_name,
+            "lang": self.lang
+        }, {"url": 1, "text": 1, "_id": 0})
+        self.web_contents = list(cursor)
+        client.close()
+
+    # def contents_to_redis(self, field_name: Optional[str] = None) -> None:
+    #     field_name = field_name or "cdd_with_llm:web_contents:" + \
+    #         self.encoded_name
+    #     logger.info(
+    #         f"Saving web contents to redis with field name {self.encoded_name}...")
+    #     redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
+    #     for item in self.web_contents:
+    #         redis_client.hset(field_name, item["url"], item["text"])
+    #     redis_client.close()
+
+    def contents_to_mongo(self) -> None:
+        logging.info("Saving web contents to MongoDB...")
+        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
+        collection = client.cdd_with_llm["web_contents"]
         for item in self.web_contents:
-            redis_client.hset(field_name, item["url"], item["text"])
-        redis_client.close()
+            collection.update_one(
+                {"company_name": self.company_name,
+                 "lang": self.lang, "url": item["url"]},
+                {
+                    "$currentDate": {
+                        "modified_date": {"$type": "date"}
+                    },
+                    "$set": {
+                        "company_name": self.company_name,
+                        "lang": self.lang,
+                        "text": item["text"]}},
+                upsert=True
+            )
+        client.close()
 
     def fca_tagging(self,
                     tagging_schema: Optional[Dict] = None,
@@ -297,7 +315,6 @@ BULLET POINT SUMMARY:"""
         # return fca_tags
 
     def summarization(self,
-                    #   with_his_data: bool = False,
                       llm_provider: str = "AzureOpenAI") -> str:
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
@@ -315,20 +332,11 @@ BULLET POINT SUMMARY:"""
         for item in self.web_contents:
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
-        # if with_his_data:
-        #     field_name = "cdd_with_llm:web_contents:" + self.encoded_name
-        #     historical_data = self.redis_client.hgetall(field_name)
-        #     self.redis_client.close()
-        #     for key in historical_data:
-        #         langchain_docs.append(Document(page_content=historical_data[key].decode(
-        #             "UTF-8"), metadata={"source": key.decode("UTF-8")}))
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=4000, chunk_overlap=0)
         chunked_docs = splitter.split_documents(langchain_docs)
 
-        # map_prompt = hub.pull("rlm/map-prompt")
-        # reduce_prompt = hub.pull("rlm/reduce-prompt")
         map_prompt_template = PromptTemplate(
             template=self.summary_map, input_variables=["text"])
         combine_prompt_template = PromptTemplate(
@@ -379,18 +387,22 @@ BULLET POINT SUMMARY:"""
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
         if with_his_data:
-            field_name = "cdd_with_llm:web_contents:" + self.encoded_name
-            redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
-            historical_data = redis_client.hgetall(field_name)
-            redis_client.close()
-            for key in historical_data:
-                langchain_docs.append(Document(page_content=historical_data[key].decode(
-                    "UTF-8"), metadata={"source": key.decode("UTF-8")}))
+            client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
+            collection = client.cdd_with_llm["web_contents"]
+            cursor = collection.find({
+                "company_name": self.company_name,
+                "lang": self.lang
+            }, {"url": 1, "text": 1, "_id": 0})
+            for doc in cursor:
+                langchain_docs.append(Document(
+                    page_content=doc["text"],
+                    metadata={"source": doc["url"]}
+                ))
+            client.close()
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=2000, chunk_overlap=200)
         chunked_docs = splitter.split_documents(langchain_docs)
-        # print(f"chunked docs count: {len(chunked_docs)}")
 
         logger.info(
             f"Documents embedding with provider {embedding_provider}...")
@@ -401,14 +413,12 @@ BULLET POINT SUMMARY:"""
         langchain_chroma = Chroma(client=chroma_client,
                                   embedding_function=embedding)
         langchain_chroma.add_documents(chunked_docs)
-        # print(f"chroma collection count: {langchain_chroma._collection.count()}")
 
         mmr_retriever = langchain_chroma.as_retriever(search_type="mmr",
                                                       search_kwargs={"k": min(3, len(chunked_docs)),
                                                                      "fetch_k": min(5, len(chunked_docs))})
 
         logger.info(f"Documents QA with LLM provider {llm_provider}...")
-        # rag_prompt = hub.pull("rlm/rag-prompt")
         rag_prompt = PromptTemplate.from_template(self.qa_template)
         rag_chain = (
             {"context": mmr_retriever, "question": RunnablePassthrough()}
@@ -430,17 +440,17 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     # cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
-    # cdd = CDDwithLLM("Theranos", lang="en-US")
+    cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
-    cdd = CDDwithLLM("SAS Institute", lang="en-US")
-    cdd.web_search(num_results=5, search_engine="Bing")
+    # cdd = CDDwithLLM("SAS Institute", lang="en-US")
+    cdd.web_search(num_results=5, search_engine="Google")
     cdd.contents_from_crawler()
-    cdd.contents_to_redis()
+    cdd.contents_to_mongo()
 
-    cdd.contents_from_redis()
+    cdd.contents_from_mongo()
     tags = cdd.fca_tagging()
     pprint.pprint(tags)
     summary = cdd.summarization()
     pprint.pprint(summary)
-    qa = cdd.qa()
+    qa = cdd.qa(with_his_data=True)
     pprint.pprint(qa)
