@@ -31,4 +31,4 @@ export REDIS_URI="redis://ryanma:PSKf3VB10E1T1a$F@redis-11595.c321.us-east-1-2.e
 # export REDIS_PORT="11595"
 # export REDIS_USER="ryanma"
 # MongoDB Atlas
-export ATLAS_URI="mongodb+srv://ryanma9629:jWx6Gn9ilKn2vW3O@cluster0.odwebzj.mongodb.net/"
+export ATLAS_URI="mongodb+srv://ryanma9629:jWx6Gn9ilKn2vW3O@cluster0.odwebzj.mongodb.net"
