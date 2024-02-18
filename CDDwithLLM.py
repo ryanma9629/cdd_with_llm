@@ -8,7 +8,7 @@ import json
 import uuid
 import pprint
 from typing import Optional, List, Dict
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 import pymongo
 import chromadb

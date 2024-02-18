@@ -1,11 +1,54 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta charset="UTF-8">
         <title>CDD with LLM</title>
     </head>
     <body>
         <div>
-            test only
+            <form action="">
+                <fieldset>
+                    <legend>News Search</legend>
+                    <label for="company_name">Company to check:</label>
+                    <input id="company_name" name="company_name" type="text" required autofocus autocomplete="on"><br><br>
+                    <label for="lang">Choose a language/region:</label>
+                    <select id="lang" name="lang">
+                        <option value="en-US">English</option>
+                        <option value="zh-CN">Simplified Chinese</option>
+                        <option value="zh-HK">Traditional Chinese(HK)</option>
+                        <option value="zh-TW">Traditional Chinese(TW)</option>
+                    </select><br><br>
+                    <label for="search_engine">Choose a search engine:</label>
+                    <select id="search_engine" name="search_engine">
+                        <option value="Bing">Bing</option>
+                        <option value="Google">Google</option>
+                    </select><br><br>
+                    <label for="n_news">Maximum number of news to fetch:</label>
+                    <select id="n_news" name="n_news">
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select><br><br>
+                    <!-- <label for="embedding_provider">Choose an embedding provider:</label>
+                    <select id="embedding_provider" name="embedding_provider">
+                        <option value="AzureOpenAI">Azure OpenAI</option>
+                        <option value="OpenAI">OpenAI</option>
+                        <option value="Alibaba">Alibaba</option>
+                        <option value="Baidu">Baidu</option>
+                    </select><br><br>
+                    <label for="llm_provider">Choose a LLM provider:</label>
+                    <select id="llm_provider" name="llm_provider">
+                        <option value="AzureOpenAI">Azure OpenAI</option>
+                        <option value="OpenAI">OpenAI</option>
+                        <option value="Alibaba">Alibaba</option>
+                        <option value="Baidu">Baidu</option>
+                    </select><br><br> -->
+                    <input type="submit">
+                    <input type="reset">
+                </fieldset>
+            </form>
         </div>
     </body>
 </html>
