@@ -8,6 +8,7 @@ import json
 import uuid
 import pprint
 from typing import Optional, List, Dict
+from datetime import datetime, date, timedelta
 
 import pymongo
 import chromadb
@@ -28,7 +29,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings, AzureChatOpenAI, AzureOpenAIEmbeddings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 if not logger.handlers:
     handler = logging.StreamHandler()
     formatter = logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
@@ -243,13 +244,16 @@ BULLET POINT SUMMARY:"""
     #         self.web_contents.append(
     #             {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
 
-    def contents_from_mongo(self) -> None:
+    def contents_from_mongo(self, data_within_days:int = 90) -> None:
         logging.info("Loading web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
         collection = client.cdd_with_llm["web_contents"]
+        within_date = datetime.combine(
+                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
         cursor = collection.find({
             "company_name": self.company_name,
-            "lang": self.lang
+            "lang": self.lang,
+            "modified_date": {"$gte": within_date}
         }, {"url": 1, "text": 1, "_id": 0})
         self.web_contents = list(cursor)
         client.close()
@@ -357,6 +361,7 @@ BULLET POINT SUMMARY:"""
     def qa(self,
            query: Optional[str] = None,
            with_his_data: bool = False,
+           data_within_days: int = 90,
            embedding_provider: str = "AzureOpenAI",
            llm_provider: str = "AzureOpenAI") -> Dict[str, str]:
         if embedding_provider == "Alibaba":
@@ -389,9 +394,12 @@ BULLET POINT SUMMARY:"""
         if with_his_data:
             client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
             collection = client.cdd_with_llm["web_contents"]
+            within_date = datetime.combine(
+                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
             cursor = collection.find({
                 "company_name": self.company_name,
-                "lang": self.lang
+                "lang": self.lang,
+                "modified_date": {"$gte": within_date}
             }, {"url": 1, "text": 1, "_id": 0})
             for doc in cursor:
                 langchain_docs.append(Document(
@@ -443,7 +451,7 @@ if __name__ == "__main__":
     cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
-    cdd.web_search(num_results=5, search_engine="Google")
+    cdd.web_search(num_results=5, search_engine="Bing")
     cdd.contents_from_crawler()
     cdd.contents_to_mongo()
 
@@ -452,5 +460,5 @@ if __name__ == "__main__":
     pprint.pprint(tags)
     summary = cdd.summarization()
     pprint.pprint(summary)
-    qa = cdd.qa(with_his_data=True)
+    qa = cdd.qa(with_his_data=True, data_within_days=1)
     pprint.pprint(qa)
