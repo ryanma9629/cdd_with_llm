@@ -174,8 +174,8 @@ BULLET POINT SUMMARY:"""
             self.company_name + " " + search_suffix, num_results=num_results)
         if search_engine == "Google":
             raw_search_results = raw_search_results["organic"]
-        self.search_results = [{"title": item["title"], "snippet": item["snippet"],
-                                "url": item["link"]} for item in raw_search_results]
+        self.search_results = [
+            {"url": item["link"], "title": item["title"]} for item in raw_search_results]
 
     def search_to_file(self,
                        path: Optional[str] = "./store/",
@@ -212,7 +212,7 @@ BULLET POINT SUMMARY:"""
         apify_dataset = (apify_client.dataset(
             actor_call["defaultDatasetId"]).list_items().items)
         self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
-                             ["httpStatusCode"] < 300 and len(item["text"]) >= min_text_length]
+                             ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
 
     def contents_from_file(self,
                            path: Optional[str] = "./store/",
@@ -244,12 +244,12 @@ BULLET POINT SUMMARY:"""
     #         self.web_contents.append(
     #             {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
 
-    def contents_from_mongo(self, data_within_days:int = 90) -> None:
+    def contents_from_mongo(self, data_within_days: int = 90) -> None:
         logging.info("Loading web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
         collection = client.cdd_with_llm["web_contents"]
         within_date = datetime.combine(
-                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
+            datetime.today(), datetime.min.time()) - timedelta(data_within_days)
         cursor = collection.find({
             "company_name": self.company_name,
             "lang": self.lang,
