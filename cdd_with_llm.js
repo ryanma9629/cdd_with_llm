@@ -1,5 +1,5 @@
 $(document).ready(function () {
-    $("#web_search_form").submit(function (e) {
+    $("#frm_web_search").submit(function (e) {
         e.preventDefault();
         tbl = $("#tbl_search_results")
         tbl.empty()
@@ -25,7 +25,7 @@ $(document).ready(function () {
                 })
                 tbl.append(tbl_body);
             });
-        $("#ajax_msg")
+        $("#p_ajax_msg")
             .ajaxStart(function () {
                 $(this).show();
             })
