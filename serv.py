@@ -27,12 +27,13 @@ async def web_search(company_name: str,
                      ):
     cdd = CDDwithLLM(company_name, lang)
     cdd.web_search(search_engine=search_engine, num_results=num_results)
+    return json.dumps(cdd.search_results)
     # cdd.contents_from_crawler(min_text_length=0)
-    df_search_results = pd.DataFrame(cdd.search_results).set_index("url")
-    df_web_contents = pd.DataFrame(cdd.web_contents).set_index("url")
-    res = pd.concat([df_search_results, df_web_contents], axis=1)
-    res.reset_index(inplace=True)
-    return res.to_json(orient="records", force_ascii=False)
+    # df_search_results = pd.DataFrame(cdd.search_results).set_index("url")
+    # df_web_contents = pd.DataFrame(cdd.web_contents).set_index("url")
+    # res = pd.concat([df_search_results, df_web_contents], axis=1)
+    # res.reset_index(inplace=True)
+    # return res.to_json(orient="records", force_ascii=False)
 
 
 
