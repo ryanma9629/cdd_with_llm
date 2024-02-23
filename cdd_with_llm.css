@@ -1,0 +1,14 @@
+.hide {
+    display: none;
+}
+
+.show {
+    display: block;
+}
+
+#tbl_search_results {
+    width: 100%;
+    border: 1px solid;
+    table-layout:fixed;
+    word-break: break-all;
+}

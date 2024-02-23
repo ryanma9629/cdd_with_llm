@@ -27,14 +27,10 @@ async def web_search(company_name: str,
                      ):
     cdd = CDDwithLLM(company_name, lang)
     cdd.web_search(search_engine=search_engine, num_results=num_results)
-    return json.dumps(cdd.search_results)
     # cdd.contents_from_crawler(min_text_length=0)
-    # df_search_results = pd.DataFrame(cdd.search_results).set_index("url")
-    # df_web_contents = pd.DataFrame(cdd.web_contents).set_index("url")
-    # res = pd.concat([df_search_results, df_web_contents], axis=1)
-    # res.reset_index(inplace=True)
-    # return res.to_json(orient="records", force_ascii=False)
-
+    # cdd.contents_to_mongo(collection="tmp", truncate_before_insert=True)
+    cdd.contents_from_mongo(collection="tmp")
+    return json.dumps(cdd.search_results)
 
 
 # @app.get('/cdd_with_llm/contents_from_crawler')
@@ -52,44 +48,43 @@ async def web_search(company_name: str,
 #     return sas_json_wrapper(cdd.web_contents)
 
 
-# @app.get('/cdd_with_llm/fca_tagging')
-# async def fca_tagging(company_name: str,
-#                       lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-#                       llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
-#                       ):
-#     cdd = CDDwithLLM(company_name, lang)
-#     cdd.contents_from_file()
-#     tags = cdd.fca_tagging(llm_provider=llm_provider)
-#     return sas_json_wrapper(tags)
+@app.get('/cdd_with_llm/fca_tagging')
+async def fca_tagging(company_name: str,
+                      lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+                      llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+                      ):
+    cdd = CDDwithLLM(company_name, lang)
+    cdd.contents_from_mongo(collection="tmp")
+    tags = cdd.fca_tagging(llm_provider=llm_provider)
+    return json.dumps(tags)
 
 
-# @app.get('/cdd_with_llm/summarization')
-# async def summarization(company_name: str,
-#                         lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-#                         llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
-#                         ):
+@app.get('/cdd_with_llm/summarization')
+async def summarization(company_name: str,
+                        lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+                        llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+                        ):
 
-#     cdd = CDDwithLLM(company_name, lang)
-#     cdd.contents_from_file()
-#     summary = cdd.summarization(llm_provider=llm_provider)
-#     return sas_json_wrapper(summary)
+    cdd = CDDwithLLM(company_name, lang)
+    cdd.contents_from_mongo(collection="tmp")
+    summary = cdd.summarization(llm_provider=llm_provider)
+    return json.dumps(summary)
 
 
-# @app.get('/cdd_with_llm/qa')
-# async def qa(company_name: str,
-#              lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
-#              query: Optional[str] = None,
-#              embedding_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
-#              llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
-#              with_his_data: bool = False
-#              ):
-#     cdd = CDDwithLLM(company_name, lang)
-#     cdd.contents_from_file()
-#     qa = cdd.qa(query=query, with_his_data=with_his_data,
-#                 embedding_provider=embedding_provider, llm_provider=llm_provider)
-#     return sas_json_wrapper(qa)
+@app.get('/cdd_with_llm/qa')
+async def qa(company_name: str,
+             lang: str = 'en-US',  # 'zh-CN', 'zh-HK', 'zh-TW', 'en-US',
+             query: Optional[str] = None,
+             embedding_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+             llm_provider: str = 'AzureOpenAI',  # 'Alibaba', 'OpenAI', 'AzureOpenAI'
+             ):
+    cdd = CDDwithLLM(company_name, lang)
+    cdd.contents_from_mongo(collection="tmp")
+    answer = cdd.qa(
+        query=query, embedding_provider=embedding_provider, llm_provider=llm_provider)
+    return json.dumps(answer)
 
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run(app, host='localhost', port=7980)
+    uvicorn.run(app, host='localhost', port=8000)

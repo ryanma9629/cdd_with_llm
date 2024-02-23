@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>CDD with LLM</title>
+    <link rel="stylesheet" href="cdd_with_llm.css">
     <script src="jquery-3.7.1.min.js"></script>
     <script src="cdd_with_llm.js"></script>
 </head>
@@ -36,52 +37,6 @@
                     <option value="50">50</option>
                     <option value="100">100</option>
                 </select><br><br>
-                <input type="submit">
-                <input type="reset">
-            </fieldset>
-        </form>
-    </div>
-    <div>
-        <p id="p_ajax_msg">[placeholder of AJAX start/stop messages]</p>
-    </div>
-    <div>
-        <p>[placeholder of web search results]</p>
-        <table id="tbl_search_results" style="border: 1px;">
-
-        </table>
-    </div>
-    <div>
-        <button id="btn_fca_tagging">FCA Tagging</button>
-    </div>
-    <div>
-        <form id="frm_summary">
-            <fieldset>
-                <legend>Summrization</legend>
-                <label for="llm_provider">Choose a LLM provider:</label>
-                <select id="llm_provider" name="llm_provider">
-                    <option value="AzureOpenAI">Azure OpenAI</option>
-                    <option value="OpenAI">OpenAI</option>
-                    <option value="Alibaba">Alibaba</option>
-                    <option value="Baidu">Baidu</option>
-                </select><br><br>
-                <label for="max_words">Maximum number of words:</label>
-                <select id="max_words" name="max_words">
-                    <option value="100">100</option>
-                    <option value="100">200</option>
-                    <option value="100">500</option>
-                </select><br><br>
-                <input type="submit">
-                <input type="reset">
-            </fieldset>
-        </form>
-    </div>
-    <div>
-        <p id="p_summary">[placeholder of summary]</p>
-    </div>
-    <div>
-        <form id="frm_qa">
-            <fieldset>
-                <legend>Question-Answering</legend>
                 <label for="embedding_provider">Choose an embedding provider:</label>
                 <select id="embedding_provider" name="embedding_provider">
                     <option value="AzureOpenAI">Azure OpenAI</option>
@@ -96,6 +51,33 @@
                     <option value="Alibaba">Alibaba</option>
                     <option value="Baidu">Baidu</option>
                 </select><br><br>
+                <input type="submit">
+                <input type="reset">
+            </fieldset>
+        </form>
+    </div>
+    <div class="hide">
+        <p id="p_ajax_msg">[placeholder of AJAX start/stop messages]</p>
+    </div>
+    <div>
+        <!-- <p>[placeholder of web search results]</p> -->
+        <table id="tbl_search_results" class="hide">
+        </table>
+    </div>
+    <div>
+        <button id="btn_fca_tagging" class="hide">FCA Tagging</button>
+    </div>
+    <div>
+        <button id="btn_summary" class="hide">Summrization</button>
+    </div>
+    <div>
+        <p id="p_summary" class="hide">[placeholder of summary]</p>
+    </div>
+    <div>
+        <form id="frm_qa" class="hide">
+            <fieldset>
+                <legend>Question-Answering</legend>
+
                 <label for="query">Your Question:</label>
                 <textarea id="query"
                     name="query">What is the negative news about this company? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.</textarea><br><br>
@@ -105,7 +87,7 @@
         </form>
     </div>
     <div>
-        <p id="p_answer">[placeholder of QA result]</p>
+        <p id="p_qa" class="hide"></p>
     </div>
 
 </body>

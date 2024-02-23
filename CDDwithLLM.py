@@ -177,23 +177,23 @@ BULLET POINT SUMMARY:"""
         self.search_results = [
             {"url": item["link"], "title": item["title"]} for item in raw_search_results]
 
-    def search_to_file(self,
-                       path: Optional[str] = "./store/",
-                       base_name: Optional[str] = None) -> None:
-        if not os.path.exists(path):
-            os.makedirs(path)
-        base_name = base_name or self.encoded_name + "_search_results.json"
-        logger.info(f"Saving search results to {base_name}...")
-        with open(os.path.join(path, base_name), 'w') as f:
-            json.dump(self.search_results, f)
+    # def search_to_file(self,
+    #                    path: Optional[str] = "./store/",
+    #                    base_name: Optional[str] = None) -> None:
+    #     if not os.path.exists(path):
+    #         os.makedirs(path)
+    #     base_name = base_name or self.encoded_name + "_search_results.json"
+    #     logger.info(f"Saving search results to {base_name}...")
+    #     with open(os.path.join(path, base_name), 'w') as f:
+    #         json.dump(self.search_results, f)
 
-    def search_from_file(self,
-                         path: Optional[str] = "./store/",
-                         base_name: Optional[str] = None) -> None:
-        base_name = base_name or self.encoded_name + "_search_results.json"
-        logger.info(f"Loading search results from {base_name}...")
-        with open(os.path.join(path, base_name), 'r') as f:
-            self.search_results = json.load(f)
+    # def search_from_file(self,
+    #                      path: Optional[str] = "./store/",
+    #                      base_name: Optional[str] = None) -> None:
+    #     base_name = base_name or self.encoded_name + "_search_results.json"
+    #     logger.info(f"Loading search results from {base_name}...")
+    #     with open(os.path.join(path, base_name), 'r') as f:
+    #         self.search_results = json.load(f)
 
     def contents_from_crawler(self,
                               min_text_length: int = 100) -> None:
@@ -214,23 +214,23 @@ BULLET POINT SUMMARY:"""
         self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
                              ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
 
-    def contents_from_file(self,
-                           path: Optional[str] = "./store/",
-                           base_name: Optional[str] = None) -> None:
-        base_name = base_name or self.encoded_name + "_web_contents.json"
-        logger.info(f"Loading web contents from {base_name}...")
-        with open(os.path.join(path, base_name), 'r') as f:
-            self.web_contents = json.load(f)
+    # def contents_from_file(self,
+    #                        path: Optional[str] = "./store/",
+    #                        base_name: Optional[str] = None) -> None:
+    #     base_name = base_name or self.encoded_name + "_web_contents.json"
+    #     logger.info(f"Loading web contents from {base_name}...")
+    #     with open(os.path.join(path, base_name), 'r') as f:
+    #         self.web_contents = json.load(f)
 
-    def contents_to_file(self,
-                         path: Optional[str] = "./store/",
-                         base_name: Optional[str] = None) -> None:
-        if not os.path.exists(path):
-            os.makedirs(path)
-        base_name = base_name or self.encoded_name + "_web_contents.json"
-        logger.info(f"Saving web contents to {base_name}...")
-        with open(os.path.join(path, base_name), 'w') as f:
-            json.dump(self.web_contents, f)
+    # def contents_to_file(self,
+    #                      path: Optional[str] = "./store/",
+    #                      base_name: Optional[str] = None) -> None:
+    #     if not os.path.exists(path):
+    #         os.makedirs(path)
+    #     base_name = base_name or self.encoded_name + "_web_contents.json"
+    #     logger.info(f"Saving web contents to {base_name}...")
+    #     with open(os.path.join(path, base_name), 'w') as f:
+    #         json.dump(self.web_contents, f)
 
     # def contents_from_redis(self, field_name: Optional[str] = None) -> None:
     #     field_name = field_name or "cdd_with_llm:web_contents:" + \
@@ -244,17 +244,25 @@ BULLET POINT SUMMARY:"""
     #         self.web_contents.append(
     #             {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
 
-    def contents_from_mongo(self, data_within_days: int = 90) -> None:
+    def contents_from_mongo(self,
+                            collection: str = "web_contents",
+                            data_within_days: int = 0) -> None:
         logging.info("Loading web contents from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
-        collection = client.cdd_with_llm["web_contents"]
-        within_date = datetime.combine(
-            datetime.today(), datetime.min.time()) - timedelta(data_within_days)
-        cursor = collection.find({
-            "company_name": self.company_name,
-            "lang": self.lang,
-            "modified_date": {"$gte": within_date}
-        }, {"url": 1, "text": 1, "_id": 0})
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
+        if data_within_days:
+            within_date = datetime.combine(
+                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
+            cursor = col.find({
+                "company_name": self.company_name,
+                "lang": self.lang,
+                "modified_date": {"$gte": within_date}
+            }, {"url": 1, "text": 1, "_id": 0})
+        else:
+            cursor = col.find({
+                "company_name": self.company_name,
+                "lang": self.lang,
+            }, {"url": 1, "text": 1, "_id": 0})
         self.web_contents = list(cursor)
         client.close()
 
@@ -268,12 +276,16 @@ BULLET POINT SUMMARY:"""
     #         redis_client.hset(field_name, item["url"], item["text"])
     #     redis_client.close()
 
-    def contents_to_mongo(self) -> None:
+    def contents_to_mongo(self, 
+                          collection: str = "web_contents",
+                          truncate_before_insert: bool = False) -> None:
         logging.info("Saving web contents to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
-        collection = client.cdd_with_llm["web_contents"]
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
+        if truncate_before_insert:
+            col.drop()
         for item in self.web_contents:
-            collection.update_one(
+            col.update_one(
                 {"company_name": self.company_name,
                  "lang": self.lang, "url": item["url"]},
                 {
@@ -392,7 +404,7 @@ BULLET POINT SUMMARY:"""
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
         if with_his_data:
-            client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
+            client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
             collection = client.cdd_with_llm["web_contents"]
             within_date = datetime.combine(
                 datetime.today(), datetime.min.time()) - timedelta(data_within_days)
@@ -438,11 +450,9 @@ BULLET POINT SUMMARY:"""
             with get_openai_callback() as cb:
                 answer = rag_chain.invoke(query)
                 logger.info(f"{cb.total_tokens} tokens used")
-                return {"query": query, "answer": answer}
-
+                return answer
         except ValueError:  # Occurs when retriever returns nothing
-            return {"query": query, "answer": self.no_info}
-
+            return self.qa_no_info
 
 if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
