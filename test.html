@@ -1,0 +1,40 @@
+<html>
+
+<head>
+    <script src="jquery-3.7.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $("#btn").on("click", function (e) {
+                e.preventDefault();
+                thead = $("#tbl thead tr");
+                thead.append($("<th>baz</th><th>qux</th>"));
+
+                tbody = $("#tbl tbody tr");
+                console.log(tbody.length);
+                tbody.eq(0).append($("<th>1</th><th>2</th>"));
+            })
+        })
+    </script>
+</head>
+
+<body>
+    <table id="tbl">
+        <thead>
+            <tr>
+                <th>foo</th>
+                <th>bar</th>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>2</td>
+            </tr>
+            <tr>
+                <td>3</td>
+                <td>4</td>
+        </tbody>
+    </table>
+    <button id="btn">clink to change</button>
+</body>
+
+</html>

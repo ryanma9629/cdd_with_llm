@@ -114,13 +114,13 @@ BULLET POINT SUMMARY:"""
             "properties": {
                 "suspected of financial crimes": {
                     "type": "string",
-                    "enum": ["suspect", "unsuspect"],
+                    "enum": ["Suspect", "Unsuspect"],
                     "description": f"determine whether the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
                 },
                 "types of suspected financial crimes": {
                     "type": "string",
                     "enum": [
-                        "Not Suspected", "Financial Fraud", "Counterfeiting Currency/Financial Instruments", "Illegal Absorption of Public Deposits", "Illegal Granting of Loans", "Money Laundering", "Insider Trading", "Manipulation of Securities Markets"],
+                        "Unsuspected", "Financial Fraud", "Counterfeiting Currency/Financial Instruments", "Illegal Absorption of Public Deposits", "Illegal Granting of Loans", "Money Laundering", "Insider Trading", "Manipulation of Securities Markets"],
                     "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Not Suspected' if not suspected",
                 },
                 "probability": {
@@ -263,7 +263,7 @@ BULLET POINT SUMMARY:"""
                 "company_name": self.company_name,
                 "lang": self.lang,
             }, {"url": 1, "text": 1, "_id": 0})
-        self.web_contents = list(cursor)
+        self.web_contents = list(cursor.sort({"url": 1}))
         client.close()
 
     # def contents_to_redis(self, field_name: Optional[str] = None) -> None:

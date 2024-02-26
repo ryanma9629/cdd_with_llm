@@ -10,84 +10,138 @@
 </head>
 
 <body>
-    <div>
-        <form id="frm_web_search">
-            <fieldset>
-                <legend>News Search</legend>
-                <label for="company_name">Company to check:</label>
-                <input id="company_name" name="company_name" type="text" required autocomplete="on"
-                    value="Theranos"><br><br>
-                <label for="lang">Choose a language/region:</label>
-                <select id="lang" name="lang">
-                    <option value="en-US">English</option>
-                    <option value="zh-CN">Simplified Chinese</option>
-                    <option value="zh-HK">Traditional Chinese(HK)</option>
-                    <option value="zh-TW">Traditional Chinese(TW)</option>
-                </select><br><br>
-                <label for="search_engine">Choose a search engine:</label>
-                <select id="search_engine" name="search_engine">
-                    <option value="Bing">Bing</option>
-                    <option value="Google">Google</option>
-                </select><br><br>
-                <label for="num_results">Maximum number of news to fetch:</label>
-                <select id="num_results" name="num_results">
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                    <option value="100">100</option>
-                </select><br><br>
-                <label for="embedding_provider">Choose an embedding provider:</label>
-                <select id="embedding_provider" name="embedding_provider">
-                    <option value="AzureOpenAI">Azure OpenAI</option>
-                    <option value="OpenAI">OpenAI</option>
-                    <option value="Alibaba">Alibaba</option>
-                    <option value="Baidu">Baidu</option>
-                </select><br><br>
-                <label for="llm_provider">Choose a LLM provider:</label>
-                <select id="llm_provider" name="llm_provider">
-                    <option value="AzureOpenAI">Azure OpenAI</option>
-                    <option value="OpenAI">OpenAI</option>
-                    <option value="Alibaba">Alibaba</option>
-                    <option value="Baidu">Baidu</option>
-                </select><br><br>
-                <input type="submit">
-                <input type="reset">
-            </fieldset>
-        </form>
+    <div id="div_ajax">
+        <p id="p_ajax" class="hide blink"></p>
     </div>
-    <div class="hide">
-        <p id="p_ajax_msg">[placeholder of AJAX start/stop messages]</p>
+
+    <div class="col-75">
+        <div class="container">
+            <form id="frm_web_search">
+                <div class="row">
+                    <div class="col-50">
+                        <label for="company_name">Company to check:</label>
+                    </div>
+                    <div class="col-50">
+                        <input id="company_name" name="company_name" type="text" required autocomplete="on"
+                            placeholder="红岭创投">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-50">
+                        <label for="lang">Choose a language/region:</label>
+                    </div>
+                    <div class="col-50">
+                        <select id="lang" name="lang">
+                            <option value="zh-CN">Simplified Chinese</option>
+                            <option value="zh-HK">Traditional Chinese(HK)</option>
+                            <option value="zh-TW">Traditional Chinese(TW)</option>
+                            <option value="en-US">English</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-50">
+                        <label for="search_engine">Choose a search engine:</label>
+                    </div>
+                    <div class="col-50">
+                        <select id="search_engine" name="search_engine">
+                            <option value="Bing">Bing</option>
+                            <option value="Google">Google</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-50">
+                        <label for="num_results">Maximum number of news to fetch:</label>
+                    </div>
+                    <div class="col-50">
+                        <select id="num_results" name="num_results">
+                            <option value="5">5</option>
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-50">
+                        <label for="embedding_provider">Choose an embedding provider:</label>
+                    </div>
+                    <div class="col-50">
+                        <select id="embedding_provider" name="embedding_provider">
+                            <option value="AzureOpenAI">Azure OpenAI</option>
+                            <option value="OpenAI">OpenAI</option>
+                            <option value="Alibaba">Alibaba</option>
+                            <option value="Baidu">Baidu</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-50">
+                        <label for="llm_provider">Choose a LLM provider:</label>
+                    </div>
+                    <div class="col-50">
+                        <select id="llm_provider" name="llm_provider">
+                            <option value="AzureOpenAI">Azure OpenAI</option>
+                            <option value="OpenAI">OpenAI</option>
+                            <option value="Alibaba">Alibaba</option>
+                            <option value="Baidu">Baidu</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-100">
+                        <input type="submit" value="Click to search">
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
-    <div>
-        <!-- <p>[placeholder of web search results]</p> -->
+
+    <div class="col-100">
         <table id="tbl_search_results" class="hide">
         </table>
     </div>
-    <div>
-        <button id="btn_fca_tagging" class="hide">FCA Tagging</button>
+    <div class="col-75">
+        <div class="container">
+            <div class="row">
+                <div class="col-25">
+                    <button id="btn_fca_tagging" class="hide">FCA Tagging</button>
+                </div>
+                <div class="col-25">
+                    <button id="btn_summary" class="hide">Summrization</button>
+                </div>
+            </div>
+        </div>
     </div>
-    <div>
-        <button id="btn_summary" class="hide">Summrization</button>
-    </div>
-    <div>
-        <p id="p_summary" class="hide">[placeholder of summary]</p>
-    </div>
-    <div>
-        <form id="frm_qa" class="hide">
-            <fieldset>
-                <legend>Question-Answering</legend>
 
-                <label for="query">Your Question:</label>
-                <textarea id="query"
-                    name="query">What is the negative news about this company? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.</textarea><br><br>
-                <input type="submit">
-                <input type="reset">
-            </fieldset>
-        </form>
+    <div class="col-75">
+        <p id="p_summary" class="hide" style="white-space: pre-line">[placeholder of summary]</p>
     </div>
-    <div>
-        <p id="p_qa" class="hide"></p>
+
+    <div class="col-75">
+        <div class="container">
+            <form id="frm_qa" class="hide">
+                <div class="row">
+                    <div class="col-25">
+                        <label for="query">Your Question:</label>
+                    </div>
+                    <div class="col-75">
+                        <textarea id="ta_query" name="query" style="height: 200px;"></textarea>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-100">
+                        <input type="submit" value="Click to submit">
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-75">
+        <p id="p_qa" class="hide" style="white-space: pre-line"></p>
     </div>
 
 </body>
