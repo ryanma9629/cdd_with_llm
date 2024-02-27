@@ -3,7 +3,10 @@
 }
 
 #div_ajax {
-    background-color: gold;
+    background-color:gold;
+}
+
+.stick_top {
     position: sticky;
     top: 0;
 }
