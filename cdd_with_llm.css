@@ -50,11 +50,17 @@ button {
     float: left;
 }
 
+input[type=submit]:hover,
+button:hover {
+    background-color: darkgreen;
+}
+
 
 .container {
     border-radius: 5px;
     background-color: #f2f2f2;
     padding: 20px;
+    margin-top: 6px;
 }
 
 .col-25 {
@@ -69,16 +75,12 @@ button {
     width: 75%;
 }
 
-.col-100 {
-    width: 100%;
-}
-
 .col-25,
 .col-50,
-.col-75,
-.col-100 {
+.col-75 {
     float: left;
-    margin-top: 6px;
+    /* margin-top: 6px; */
+    padding: 0 16px;
 }
 
 /* Clear floats after the columns */
@@ -99,6 +101,7 @@ button {
 #tbl_search_results th {
     border: 1px solid #ddd;
     padding: 8px;
+    overflow-wrap: break-word;
 }
 
 #tbl_search_results tr:nth-child(even) {
@@ -113,8 +116,8 @@ button {
     padding-top: 12px;
     padding-bottom: 12px;
     text-align: left;
-    background-color: #04AA6D;
     color: white;
+    background-color: steelblue;
 }
 
 .hide {

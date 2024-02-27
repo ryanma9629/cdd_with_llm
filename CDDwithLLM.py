@@ -53,12 +53,12 @@ class CDDwithLLM:
 有用的答案："""
             self.qa_default_query = f"""{self.company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。"""
             self.qa_no_info = "没有足够的信息回答该问题"
-            self.summary_map = """请写出以下内容的简明摘要：
+            self.summary_map = "请基于三个反引号之间文字，写出关于" + self.company_name +  """的简明摘要：
 
-"{text}"
+```{text}```
 
 简明摘要："""
-            self.summary_combine = """简要概括三个反引号之间文字，以要点形式返回你的回复，每个要点独立一行，涵盖文本的要点：
+            self.summary_combine = "简要概括三个反引号之间文字，以要点形式返回关于" + self.company_name + """的描述，每个要点独立一行：
 
 ```{text}```
 
@@ -76,12 +76,12 @@ class CDDwithLLM:
 有用的答案："""
             self.qa_default_query = f"""{self.company_name}有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。"""
             self.qa_no_info = "沒有足夠的資訊回答該問題"
-            self.summary_map = """請寫出以下內容的簡明摘要：
+            self.summary_map = "請基於三個反引號之間文字，寫出關於" + self.company_name + """的簡明摘要：
 
-"{text}"
+```{text}```
 
 簡明摘要："""
-            self.summary_combine = """簡要概括三個反引號之間文字，以要點形式返回你的回復，每個要點獨立一行，涵蓋文本的要點：
+            self.summary_combine = "簡要概括三個反引號之間文字，以要點形式返回關於" + self.company_name + """的描述，每個要點獨立一行：
 
 ```{text}```
 
@@ -99,12 +99,12 @@ Question: {question}
 Helpful Answer:"""
             self.qa_default_query = f"""What is the negative news about {self.company_name}? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from."""
             self.qa_no_info = "No enough information to answer"
-            self.summary_map = """Write a concise summary of the following:
+            self.summary_map = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes:
 
-"{text}"
+```{text}```
 
 CONCISE SUMMARY:"""
-            self.summary_combine = """Write a concise summary of the following text delimited by triple backquotes.
+            self.summary_combine = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes.
 Return your response in bullet points which covers the key points of the text.
 
 ```{text}```

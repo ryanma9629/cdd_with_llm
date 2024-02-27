@@ -10,27 +10,21 @@
 </head>
 
 <body>
-    <div id="div_ajax">
-        <p id="p_ajax" class="hide blink"></p>
-    </div>
-
-    <div class="col-75">
-        <div class="container">
-            <form id="frm_web_search">
-                <div class="row">
-                    <div class="col-50">
+    <div class="row">
+        <div class="col-25">
+            <div class="container">
+                <form id="frm_web_search">
+                    <div class="row">
                         <label for="company_name">Company to check:</label>
                     </div>
-                    <div class="col-50">
+                    <div class="row">
                         <input id="company_name" name="company_name" type="text" required autocomplete="on"
                             placeholder="红岭创投">
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-50">
+                    <div class="row">
                         <label for="lang">Choose a language/region:</label>
                     </div>
-                    <div class="col-50">
+                    <div class="row">
                         <select id="lang" name="lang">
                             <option value="zh-CN">Simplified Chinese</option>
                             <option value="zh-HK">Traditional Chinese(HK)</option>
@@ -38,23 +32,19 @@
                             <option value="en-US">English</option>
                         </select>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-50">
+                    <div class="row">
                         <label for="search_engine">Choose a search engine:</label>
                     </div>
-                    <div class="col-50">
+                    <div class="row">
                         <select id="search_engine" name="search_engine">
                             <option value="Bing">Bing</option>
                             <option value="Google">Google</option>
                         </select>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-50">
+                    <div class="row">
                         <label for="num_results">Maximum number of news to fetch:</label>
                     </div>
-                    <div class="col-50">
+                    <div class="row">
                         <select id="num_results" name="num_results">
                             <option value="5">5</option>
                             <option value="10">10</option>
@@ -63,12 +53,11 @@
                             <option value="100">100</option>
                         </select>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-50">
+
+                    <div class="row">
                         <label for="embedding_provider">Choose an embedding provider:</label>
                     </div>
-                    <div class="col-50">
+                    <div class="row">
                         <select id="embedding_provider" name="embedding_provider">
                             <option value="AzureOpenAI">Azure OpenAI</option>
                             <option value="OpenAI">OpenAI</option>
@@ -76,12 +65,10 @@
                             <option value="Baidu">Baidu</option>
                         </select>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-50">
+                    <div class="row">
                         <label for="llm_provider">Choose a LLM provider:</label>
                     </div>
-                    <div class="col-50">
+                    <div class="row">
                         <select id="llm_provider" name="llm_provider">
                             <option value="AzureOpenAI">Azure OpenAI</option>
                             <option value="OpenAI">OpenAI</option>
@@ -89,61 +76,66 @@
                             <option value="Baidu">Baidu</option>
                         </select>
                     </div>
-                </div>
-                <div class="row">
-                    <div class="col-100">
+                    <div class="row">
+                        <br>
+                    </div>
+                    <div class="row">
                         <input type="submit" value="Click to search">
                     </div>
-                </div>
+            </div>
             </form>
         </div>
-    </div>
 
-    <div class="col-100">
-        <table id="tbl_search_results" class="hide">
-        </table>
-    </div>
-    <div class="col-75">
-        <div class="container">
-            <div class="row">
-                <div class="col-25">
-                    <button id="btn_fca_tagging" class="hide">FCA Tagging</button>
+        <div class="col-75">
+            <div id="div_ajax" class="hide">
+                <p id="p_ajax" class="blink"></p>
+            </div>
+
+            <div id="div_search_results" class="container hide">
+                <table id="tbl_search_results">
+                </table>
+            </div>
+
+            <div id="div_tagging_and_summary" class="container hide">
+                <div class="row">
+                    <div class="col-25">
+                        <button id="btn_tagging">FCA Tagging</button>
+                    </div>
+                    <div class="col-25">
+                        <button id="btn_summary">Summrization</button>
+                    </div>
                 </div>
-                <div class="col-25">
-                    <button id="btn_summary" class="hide">Summrization</button>
-                </div>
+            </div>
+
+            <div id="div_summary" class="container hide">
+                <h3>Summary</h3>
+                <hr>
+                <p id="p_summary"></p>
+            </div>
+
+            <div id="div_qa" class="container hide">
+                <form id="frm_qa">
+                    <div class="row">
+                        <div class="col-25">
+                            <label for="query">Your Question:</label>
+                        </div>
+                        <div class="col-75">
+                            <textarea id="ta_query" name="query" style="height: 100px;"></textarea>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <input type="submit" value="Make an answer">
+                    </div>
+                </form>
+            </div>
+
+            <div id="div_answer" class="container hide">
+                <h3>Answer</h3>
+                <hr>
+                <p id="p_answer"></p>
             </div>
         </div>
     </div>
-
-    <div class="col-75">
-        <p id="p_summary" class="hide" style="white-space: pre-line">[placeholder of summary]</p>
-    </div>
-
-    <div class="col-75">
-        <div class="container">
-            <form id="frm_qa" class="hide">
-                <div class="row">
-                    <div class="col-25">
-                        <label for="query">Your Question:</label>
-                    </div>
-                    <div class="col-75">
-                        <textarea id="ta_query" name="query" style="height: 200px;"></textarea>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-100">
-                        <input type="submit" value="Click to submit">
-                    </div>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="col-75">
-        <p id="p_qa" class="hide" style="white-space: pre-line"></p>
-    </div>
-
 </body>
 
 </html>
