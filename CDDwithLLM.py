@@ -53,12 +53,12 @@ class CDDwithLLM:
 有用的答案："""
             self.qa_default_query = f"""{self.company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。"""
             self.qa_no_info = "没有足够的信息回答该问题"
-            self.summary_map = "请基于三个反引号之间文字，写出关于" + self.company_name +  """的简明摘要：
+            self.summary_map = "请基于三个反引号之间文字，写出关于" + self.company_name + """的简明摘要：
 
 ```{text}```
 
 简明摘要："""
-            self.summary_combine = "简要概括三个反引号之间文字，以要点形式返回关于" + self.company_name + """的描述，每个要点独立一行：
+            self.summary_combine = "简要概括三个反引号之间文字，以要点形式返回关于" + self.company_name + """的描述，每个要点独立一行，不超过5行：
 
 ```{text}```
 
@@ -81,7 +81,7 @@ class CDDwithLLM:
 ```{text}```
 
 簡明摘要："""
-            self.summary_combine = "簡要概括三個反引號之間文字，以要點形式返回關於" + self.company_name + """的描述，每個要點獨立一行：
+            self.summary_combine = "簡要概括三個反引號之間文字，以要點形式返回關於" + self.company_name + """的描述，每個要點獨立一行，不超過5行：
 
 ```{text}```
 
@@ -105,23 +105,23 @@ Helpful Answer:"""
 
 CONCISE SUMMARY:"""
             self.summary_combine = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes.
-Return your response in bullet points which covers the key points of the text.
+Return your response in bullet points which covers the key points of the text, with no more than 5 lines.
 
 ```{text}```
 
 BULLET POINT SUMMARY:"""
         self.default_tagging_schema = {
             "properties": {
-                "suspected of financial crimes": {
-                    "type": "string",
-                    "enum": ["Suspect", "Unsuspect"],
-                    "description": f"determine whether the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
-                },
+                # "suspected of financial crimes": {
+                #     "type": "string",
+                #     "enum": ["Suspect", "Unsuspect"],
+                #     "description": f"determine whether the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
+                # },
                 "types of suspected financial crimes": {
                     "type": "string",
                     "enum": [
                         "Unsuspected", "Financial Fraud", "Counterfeiting Currency/Financial Instruments", "Illegal Absorption of Public Deposits", "Illegal Granting of Loans", "Money Laundering", "Insider Trading", "Manipulation of Securities Markets"],
-                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Not Suspected' if not suspected",
+                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Unsuspected' if not suspected",
                 },
                 "probability": {
                     "type": "string",
@@ -129,7 +129,7 @@ BULLET POINT SUMMARY:"""
                     "description": f"describes the probability that the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
                 },
             },
-            "required": ["suspected of financial crimes", "types of suspected financial crimes", "probability"],
+            "required": ["types of suspected financial crimes", "probability"],
         }
 
     def __init__(
@@ -276,7 +276,7 @@ BULLET POINT SUMMARY:"""
     #         redis_client.hset(field_name, item["url"], item["text"])
     #     redis_client.close()
 
-    def contents_to_mongo(self, 
+    def contents_to_mongo(self,
                           collection: str = "web_contents",
                           truncate_before_insert: bool = False) -> None:
         logging.info("Saving web contents to MongoDB...")
@@ -301,6 +301,9 @@ BULLET POINT SUMMARY:"""
         client.close()
 
     def fca_tagging(self,
+                    strategy: str = "first-sus",  # "first", "first-sus"
+                    chunk_size: int = 2000,
+                    chunk_overlap: int = 100,
                     tagging_schema: Optional[Dict] = None,
                     llm_provider: str = "AzureOpenAI") -> List[Dict]:
         if llm_provider == "Alibaba":
@@ -317,20 +320,46 @@ BULLET POINT SUMMARY:"""
         tagging_schema = tagging_schema or self.default_tagging_schema
         tagging_chain = create_tagging_chain(tagging_schema, llm)
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=4000, chunk_overlap=0)
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         fca_tags = []
 
         with get_openai_callback() as cb:
-            for doc in [item["text"] for item in self.web_contents]:
+            # for doc in [item["text"] for item in self.web_contents]:
+            for item in self.web_contents:
+                url = item["url"]
+                doc = item["text"]
                 chunked_docs = splitter.split_text(doc)
-                # Use only the first chunk to save llm calls
-                fca_tags.append(tagging_chain.invoke(chunked_docs[0]))
+                if strategy == "first":
+                    fca_tags.append({"url": url,
+                                     "tag": tagging_chain.invoke(chunked_docs[0])["text"]})
+                elif strategy == "first-sus":
+                    p_tag_medium = {}
+                    p_tag_high = {}
+                    for piece in chunked_docs:
+                        p_tag = tagging_chain.invoke(piece)["text"]
+                        if "probability" in p_tag.keys():
+                            if p_tag["probability"] == "medium":
+                                if not p_tag_medium:
+                                    p_tag_medium = p_tag
+                            elif p_tag["probability"] == "high":
+                                p_tag_high = p_tag
+                                break
+                    if p_tag_high:
+                        fca_tags.append({"url": url, "tag": p_tag_high})
+                    elif p_tag_medium:
+                        fca_tags.append({"url": url, "tag": p_tag_medium})
+                    else:
+                        fca_tags.append({"url": url, "tag": {
+                            "types of suspected financial crimes": "Unsuspect",
+                            "probability": "low"
+                        }})
             logger.info(f"{cb.total_tokens} tokens used")
 
-        return [item['text'] for item in fca_tags]
-        # return fca_tags
+        return fca_tags
 
     def summarization(self,
+                      chunk_size: int = 2000,
+                      chunk_overlap: int = 100,
                       llm_provider: str = "AzureOpenAI") -> str:
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
@@ -350,7 +379,7 @@ BULLET POINT SUMMARY:"""
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
 
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=4000, chunk_overlap=0)
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         chunked_docs = splitter.split_documents(langchain_docs)
 
         map_prompt_template = PromptTemplate(
@@ -374,6 +403,8 @@ BULLET POINT SUMMARY:"""
            query: Optional[str] = None,
            with_his_data: bool = False,
            data_within_days: int = 90,
+           chunk_size: int = 1000,
+           chunk_overlap: int = 100,
            embedding_provider: str = "AzureOpenAI",
            llm_provider: str = "AzureOpenAI") -> Dict[str, str]:
         if embedding_provider == "Alibaba":
@@ -421,7 +452,7 @@ BULLET POINT SUMMARY:"""
             client.close()
 
         splitter = RecursiveCharacterTextSplitter(
-            chunk_size=2000, chunk_overlap=200)
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         chunked_docs = splitter.split_documents(langchain_docs)
 
         logger.info(
@@ -454,19 +485,20 @@ BULLET POINT SUMMARY:"""
         except ValueError:  # Occurs when retriever returns nothing
             return self.qa_no_info
 
+
 if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
-    # cdd = CDDwithLLM("红岭创投", lang="zh-CN")
+    cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
-    cdd = CDDwithLLM("Theranos", lang="en-US")
+    # cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
-    cdd.web_search(num_results=5, search_engine="Bing")
+    cdd.web_search(num_results=10, search_engine="Bing")
     cdd.contents_from_crawler()
-    cdd.contents_to_mongo()
+    # cdd.contents_to_mongo()
 
-    cdd.contents_from_mongo()
-    tags = cdd.fca_tagging()
+    # cdd.contents_from_mongo()
+    tags = cdd.fca_tagging(strategy="first-sus")
     pprint.pprint(tags)
     summary = cdd.summarization()
     pprint.pprint(summary)
