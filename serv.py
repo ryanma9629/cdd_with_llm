@@ -22,20 +22,20 @@ app.add_middleware(
 @app.get('/cdd_with_llm/web_search')
 async def web_search(company_name: str,
                      lang: str = 'en-US',
-                     search_engine: str = 'Bing', 
+                     search_engine: str = 'Bing',
                      num_results: int = 5,
                      ):
     cdd = CDDwithLLM(company_name, lang)
     cdd.web_search(search_engine=search_engine, num_results=num_results)
     cdd.contents_from_crawler(min_text_length=0)
-    cdd.contents_to_mongo(collection="tmp", truncate_before_insert=True)
-    cdd.contents_from_mongo(collection="tmp")
+    # cdd.contents_to_mongo(collection="tmp", truncate_before_insert=True)
+    # cdd.contents_from_mongo(collection="tmp")
     return cdd.search_results
 
 
 @app.get('/cdd_with_llm/fca_tagging')
 async def fca_tagging(company_name: str,
-                      lang: str = 'en-US', 
+                      lang: str = 'en-US',
                       llm_provider: str = 'AzureOpenAI',
                       ):
     cdd = CDDwithLLM(company_name, lang)
@@ -72,3 +72,4 @@ async def qa(company_name: str,
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run(app, host='localhost', port=8000)
+    # uvicorn.run(app, host='0.0.0.0', port=8000, ssl_keyfile="tf02+1-key.pem", ssl_certfile="tf02+1.pem")

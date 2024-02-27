@@ -2,7 +2,7 @@ function txt2html(txt) {
     var html = txt.replace(/(?:\r\n|\r|\n)/g, " <br><br>");
     var urlReg = /(https?:\/\/[^\s]+)/g;
     return html.replace(urlReg, function (url) {
-        return '<a href="' + url + '">' + url + '</a>';
+        return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
     })
 
 }
@@ -82,6 +82,7 @@ $(document).ready(function () {
                         var linkText = document.createTextNode(hostReg.exec(v.toString()));
                         a.appendChild(linkText);
                         a.href = v.toString();
+                        a.target = "_blank";
                         cell.appendChild(a);
                     } else {
                         cell.appendChild(document.createTextNode(v.toString().replace(/(<([^>]+)>)/ig, '')));
