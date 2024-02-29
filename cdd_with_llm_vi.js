@@ -31,8 +31,6 @@ $(document).ready(function () {
 
 
     var company_name = new URLSearchParams(window.location.search).get("company_name");
-    console.log(company_name);
-
     var lang;
 
     // var hostReg = new RegExp(/https?:\/\/[^/]+/);
@@ -40,7 +38,6 @@ $(document).ready(function () {
     frm_web_search.on("submit", function (e) {
         e.preventDefault();
 
-        // company_name = $("#company_name").val();
         lang = $("#lang").val();
 
         div_search_results.hide();
@@ -73,8 +70,8 @@ $(document).ready(function () {
         console.log(form_data);
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/web_search",
-            // url: "http://tf02:8000/cdd_with_llm/web_search",
+            // url: "http://localhost:8000/cdd_with_llm/web_search",
+            url: "http://tf02:8000/cdd_with_llm/web_search",
             data: form_data,
             type: "GET",
             beforeSend: function () {
@@ -96,8 +93,8 @@ $(document).ready(function () {
     btn_crawler.on("click", function (e) {
         e.preventDefault();
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
-            // url: "http://tf02:8000/cdd_with_llm/contents_from_crawler",
+            // url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
+            url: "http://tf02:8000/cdd_with_llm/contents_from_crawler",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -128,8 +125,8 @@ $(document).ready(function () {
         e.preventDefault();
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/fca_tagging",
-            // url: "http://tf02:8000/cdd_with_llm/fca_tagging",
+            // url: "http://localhost:8000/cdd_with_llm/fca_tagging",
+            url: "http://tf02:8000/cdd_with_llm/fca_tagging",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -158,8 +155,8 @@ $(document).ready(function () {
         div_summary.hide();
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/summarization",
-            // url: "http://tf02:8000/cdd_with_llm/summarization",
+            // url: "http://localhost:8000/cdd_with_llm/summarization",
+            url: "http://tf02:8000/cdd_with_llm/summarization",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -187,8 +184,8 @@ $(document).ready(function () {
         div_answer.hide();
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/qa",
-            // url: "http://tf02:8000/cdd_with_llm/qa",
+            // url: "http://localhost:8000/cdd_with_llm/qa",
+            url: "http://tf02:8000/cdd_with_llm/qa",
             data: {
                 "company_name": company_name,
                 "lang": lang,
