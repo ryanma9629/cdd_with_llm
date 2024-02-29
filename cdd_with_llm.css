@@ -3,7 +3,45 @@
 }
 
 #div_ajax {
-    background-color:gold;
+    background-color: gold;
+}
+
+#tbl_search_results {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+}
+
+#tbl_search_results td,
+#tbl_search_results th {
+    border: 1px solid #ddd;
+    padding: 8px;
+    /* overflow-wrap: break-word; */
+}
+
+#tbl_search_results td:nth-child(1),
+#tbl_search_results th:nth-child(1) {
+    width: 20%;
+    overflow-wrap: break-word;
+}
+
+
+#tbl_search_results tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+
+#tbl_search_results tr:hover {
+    background-color: #ddd;
+}
+
+#tbl_search_results th {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    text-align: left;
+    color: white;
+    background-color: steelblue;
 }
 
 .stick_top {
@@ -58,12 +96,25 @@ button:hover {
     background-color: darkgreen;
 }
 
+button:disabled,
+button[disabled] {
+    /* border: 1px solid #999999; */
+    background-color: #cccccc;
+    color: #666666;
+}
 
 .container {
     border-radius: 5px;
     background-color: #f2f2f2;
     padding: 20px;
     margin-top: 6px;
+}
+
+.container_nomargin {
+    border-radius: 5px;
+    background-color: #f2f2f2;
+    padding: 20px;
+    /* margin-top: 6px; */
 }
 
 .col-25 {
@@ -93,35 +144,6 @@ button:hover {
     clear: both;
 }
 
-#tbl_search_results {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 10pt;
-    border-collapse: collapse;
-    width: 100%;
-}
-
-#tbl_search_results td,
-#tbl_search_results th {
-    border: 1px solid #ddd;
-    padding: 8px;
-    overflow-wrap: break-word;
-}
-
-#tbl_search_results tr:nth-child(even) {
-    background-color: #f2f2f2;
-}
-
-#tbl_search_results tr:hover {
-    background-color: #ddd;
-}
-
-#tbl_search_results th {
-    padding-top: 12px;
-    padding-bottom: 12px;
-    text-align: left;
-    color: white;
-    background-color: steelblue;
-}
 
 .hide {
     display: none;
@@ -129,4 +151,52 @@ button:hover {
 
 .show {
     display: block;
+}
+
+/* The Modal (background) */
+.modal {
+    display: none;
+    /* Hidden by default */
+    position: fixed;
+    /* Stay in place */
+    z-index: 1;
+    /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%;
+    /* Full width */
+    height: 100%;
+    /* Full height */
+    overflow: auto;
+    /* Enable scroll if needed */
+    background-color: rgb(0, 0, 0);
+    /* Fallback color */
+    background-color: rgba(0, 0, 0, 0.4);
+    /* Black w/ opacity */
+    padding-top: 60px;
+}
+
+/* Modal Content/Box */
+.modal-content {
+    border-radius: 5px;
+    background-color: #fefefe;
+    margin: 5% auto 15% auto;
+    /* 5% from the top, 15% from the bottom and centered */
+    border: 1px solid #888;
+    width: 40%;
+    /* Could be more or less, depending on screen size */
+}
+
+.animate {
+    animation: animatezoom 0.6s
+}
+
+@keyframes animatezoom {
+    from {
+        transform: scale(0)
+    }
+
+    to {
+        transform: scale(1)
+    }
 }

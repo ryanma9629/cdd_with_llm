@@ -110,18 +110,25 @@ Return your response in bullet points which covers the key points of the text, w
 ```{text}```
 
 BULLET POINT SUMMARY:"""
-        self.default_tagging_schema = {
+        self.tagging_schema = {
             "properties": {
                 # "suspected of financial crimes": {
                 #     "type": "string",
                 #     "enum": ["Suspect", "Unsuspect"],
                 #     "description": f"determine whether the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
                 # },
-                "types of suspected financial crimes": {
+                "type": {
                     "type": "string",
                     "enum": [
-                        "Unsuspected", "Financial Fraud", "Counterfeiting Currency/Financial Instruments", "Illegal Absorption of Public Deposits", "Illegal Granting of Loans", "Money Laundering", "Insider Trading", "Manipulation of Securities Markets"],
-                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Unsuspected' if not suspected",
+                        "Not suspected",
+                        "Financial Fraud",
+                        "Counterfeiting Currency/Financial Instruments",
+                        "Illegal Absorption of Public Deposits",
+                        "Illegal Granting of Loans",
+                        "Money Laundering",
+                        "Insider Trading",
+                        "Manipulation of Securities Markets"],
+                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Not suspected' if not suspected",
                 },
                 "probability": {
                     "type": "string",
@@ -177,26 +184,56 @@ BULLET POINT SUMMARY:"""
         self.search_results = [
             {"url": item["link"], "title": item["title"]} for item in raw_search_results]
 
-    # def search_to_file(self,
-    #                    path: Optional[str] = "./store/",
-    #                    base_name: Optional[str] = None) -> None:
-    #     if not os.path.exists(path):
-    #         os.makedirs(path)
-    #     base_name = base_name or self.encoded_name + "_search_results.json"
-    #     logger.info(f"Saving search results to {base_name}...")
-    #     with open(os.path.join(path, base_name), 'w') as f:
-    #         json.dump(self.search_results, f)
+    def search_to_mongo(self,
+                        collection: str = "tmp_search",
+                        truncate_before_insert: bool = True) -> None:
+        logging.info("Saving search results to MongoDB...")
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
+        if truncate_before_insert:
+            col.drop()
+        for item in self.search_results:
+            col.update_one(
+                {"company_name": self.company_name,
+                 "lang": self.lang, "url": item["url"]},
+                {
+                    "$currentDate": {
+                        "modified_date": {"$type": "date"}
+                    },
+                    "$set": {
+                        "company_name": self.company_name,
+                        "lang": self.lang,
+                        "url": item["url"],
+                        "title": item["title"]}},
+                upsert=True
+            )
+        client.close()
 
-    # def search_from_file(self,
-    #                      path: Optional[str] = "./store/",
-    #                      base_name: Optional[str] = None) -> None:
-    #     base_name = base_name or self.encoded_name + "_search_results.json"
-    #     logger.info(f"Loading search results from {base_name}...")
-    #     with open(os.path.join(path, base_name), 'r') as f:
-    #         self.search_results = json.load(f)
+    def search_from_mongo(self,
+                          collection: str = "tmp_search",
+                          data_within_days: int = 0) -> None:
+        logging.info("Loading search results from MongoDB...")
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
+        if data_within_days:
+            within_date = datetime.combine(
+                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
+            cursor = col.find({
+                "company_name": self.company_name,
+                "lang": self.lang,
+                "modified_date": {"$gte": within_date}
+            }, {"url": 1, "title": 1, "_id": 0})
+        else:
+            cursor = col.find({
+                "company_name": self.company_name,
+                "lang": self.lang,
+            }, {"url": 1, "title": 1, "_id": 0})
+        # self.web_contents = list(cursor.sort({"url": 1}))
+        self.search_results = list(cursor)
+        client.close()
 
     def contents_from_crawler(self,
-                              min_text_length: int = 100) -> None:
+                              min_text_length: int = 0) -> None:
         logger.info("Getting detailed web contents from each url...")
         apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
         actor_call = apify_client.actor("apify/website-content-crawler").call(
@@ -214,38 +251,8 @@ BULLET POINT SUMMARY:"""
         self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
                              ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
 
-    # def contents_from_file(self,
-    #                        path: Optional[str] = "./store/",
-    #                        base_name: Optional[str] = None) -> None:
-    #     base_name = base_name or self.encoded_name + "_web_contents.json"
-    #     logger.info(f"Loading web contents from {base_name}...")
-    #     with open(os.path.join(path, base_name), 'r') as f:
-    #         self.web_contents = json.load(f)
-
-    # def contents_to_file(self,
-    #                      path: Optional[str] = "./store/",
-    #                      base_name: Optional[str] = None) -> None:
-    #     if not os.path.exists(path):
-    #         os.makedirs(path)
-    #     base_name = base_name or self.encoded_name + "_web_contents.json"
-    #     logger.info(f"Saving web contents to {base_name}...")
-    #     with open(os.path.join(path, base_name), 'w') as f:
-    #         json.dump(self.web_contents, f)
-
-    # def contents_from_redis(self, field_name: Optional[str] = None) -> None:
-    #     field_name = field_name or "cdd_with_llm:web_contents:" + \
-    #         self.encoded_name
-    #     logger.info(
-    #         f"Loading web contents from redis with field name {self.encoded_name}...")
-    #     redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
-    #     redis_data = redis_client.hgetall(field_name)
-    #     redis_client.close()
-    #     for key in redis_data:
-    #         self.web_contents.append(
-    #             {"url": key.decode("UTF-8"), "text": redis_data[key].decode("UTF-8")})
-
     def contents_from_mongo(self,
-                            collection: str = "web_contents",
+                            collection: str = "tmp_contents",
                             data_within_days: int = 0) -> None:
         logging.info("Loading web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
@@ -263,22 +270,13 @@ BULLET POINT SUMMARY:"""
                 "company_name": self.company_name,
                 "lang": self.lang,
             }, {"url": 1, "text": 1, "_id": 0})
-        self.web_contents = list(cursor.sort({"url": 1}))
+        # self.web_contents = list(cursor.sort({"url": 1}))
+        self.web_contents = list(cursor)
         client.close()
 
-    # def contents_to_redis(self, field_name: Optional[str] = None) -> None:
-    #     field_name = field_name or "cdd_with_llm:web_contents:" + \
-    #         self.encoded_name
-    #     logger.info(
-    #         f"Saving web contents to redis with field name {self.encoded_name}...")
-    #     redis_client = redis.Redis.from_url(os.getenv("REDIS_URI"))
-    #     for item in self.web_contents:
-    #         redis_client.hset(field_name, item["url"], item["text"])
-    #     redis_client.close()
-
     def contents_to_mongo(self,
-                          collection: str = "web_contents",
-                          truncate_before_insert: bool = False) -> None:
+                          collection: str = "tmp_contents",
+                          truncate_before_insert: bool = True) -> None:
         logging.info("Saving web contents to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
@@ -295,6 +293,7 @@ BULLET POINT SUMMARY:"""
                     "$set": {
                         "company_name": self.company_name,
                         "lang": self.lang,
+                        "url": item["url"],
                         "text": item["text"]}},
                 upsert=True
             )
@@ -304,7 +303,6 @@ BULLET POINT SUMMARY:"""
                     strategy: str = "first-sus",  # "first", "first-sus"
                     chunk_size: int = 2000,
                     chunk_overlap: int = 100,
-                    tagging_schema: Optional[Dict] = None,
                     llm_provider: str = "AzureOpenAI") -> List[Dict]:
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
@@ -317,8 +315,7 @@ BULLET POINT SUMMARY:"""
             raise ValueError(f"LLM provider {llm_provider} is not supported.")
 
         logger.info(f"Documents tagging with LLM provider {llm_provider}...")
-        tagging_schema = tagging_schema or self.default_tagging_schema
-        tagging_chain = create_tagging_chain(tagging_schema, llm)
+        tagging_chain = create_tagging_chain(self.tagging_schema, llm)
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         fca_tags = []
@@ -330,8 +327,10 @@ BULLET POINT SUMMARY:"""
                 doc = item["text"]
                 chunked_docs = splitter.split_text(doc)
                 if strategy == "first":
+                    tag = tagging_chain.invoke(chunked_docs[0])["text"]
                     fca_tags.append({"url": url,
-                                     "tag": tagging_chain.invoke(chunked_docs[0])["text"]})
+                                     "type": tag["type"],
+                                     "probability": tag["probability"]})
                 elif strategy == "first-sus":
                     p_tag_medium = {}
                     p_tag_high = {}
@@ -345,14 +344,17 @@ BULLET POINT SUMMARY:"""
                                 p_tag_high = p_tag
                                 break
                     if p_tag_high:
-                        fca_tags.append({"url": url, "tag": p_tag_high})
+                        fca_tags.append({"url": url,
+                                         "type": p_tag_high["type"],
+                                         "probability": p_tag_high["probability"]})
                     elif p_tag_medium:
-                        fca_tags.append({"url": url, "tag": p_tag_medium})
+                        fca_tags.append({"url": url,
+                                         "type": p_tag_medium["type"],
+                                         "probability": p_tag_medium["probability"]})
                     else:
-                        fca_tags.append({"url": url, "tag": {
-                            "types of suspected financial crimes": "Unsuspect",
-                            "probability": "low"
-                        }})
+                        fca_tags.append({"url": url,
+                                         "type": "Not suspected",
+                                         "probability": "low"})
             logger.info(f"{cb.total_tokens} tokens used")
 
         return fca_tags
@@ -490,15 +492,17 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
-    # cdd = CDDwithLLM("Theranos", lang="en-US")
+    cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
-    cdd.web_search(num_results=10, search_engine="Bing")
+    cdd.web_search(num_results=5, search_engine="Bing")
+    cdd.search_to_mongo()
+    cdd.search_from_mongo()
     cdd.contents_from_crawler()
-    # cdd.contents_to_mongo()
+    cdd.contents_to_mongo()
+    cdd.contents_from_mongo()
 
-    # cdd.contents_from_mongo()
-    tags = cdd.fca_tagging(strategy="first-sus")
+    tags = cdd.fca_tagging(strategy="first-sus", chunk_size=2000)
     pprint.pprint(tags)
     summary = cdd.summarization()
     pprint.pprint(summary)

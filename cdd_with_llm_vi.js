@@ -29,7 +29,10 @@ $(document).ready(function () {
     var div_answer = $("#div_answer");
     var p_answer = $("#p_answer");
 
-    var company_name;
+
+    var company_name = new URLSearchParams(window.location.search).get("company_name");
+    console.log(company_name);
+
     var lang;
 
     // var hostReg = new RegExp(/https?:\/\/[^/]+/);
@@ -37,7 +40,7 @@ $(document).ready(function () {
     frm_web_search.on("submit", function (e) {
         e.preventDefault();
 
-        company_name = $("#company_name").val();
+        // company_name = $("#company_name").val();
         lang = $("#lang").val();
 
         div_search_results.hide();
@@ -65,10 +68,14 @@ $(document).ready(function () {
         div_answer.hide();
         p_answer.empty();
 
+        form_data = $(this).serializeArray();
+        form_data.push({"name": "company_name", "value": company_name});
+        console.log(form_data);
+
         $.ajax({
             url: "http://localhost:8000/cdd_with_llm/web_search",
             // url: "http://tf02:8000/cdd_with_llm/web_search",
-            data: $(this).serialize(),
+            data: form_data,
             type: "GET",
             beforeSend: function () {
                 div_ajax.show();
