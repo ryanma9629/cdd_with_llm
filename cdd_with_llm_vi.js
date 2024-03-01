@@ -19,16 +19,21 @@ $(document).ready(function () {
     var btn_summary = $("#btn_summary");
     var btn_qa = $("#btn_qa");
 
+    var div_tagging_frm = $("#div_tagging_frm");
+    var frm_tagging = $("#frm_tagging");
+
+    var div_summary_frm = $("#div_summary_frm");
+    var frm_summary = $("#frm_summary");
+
+    var div_qa_frm = $("#div_qa_frm");
+    var frm_qa = $("#frm_qa");
+    var qa_query = $("#qa_query");
+
     var div_summary = $("#div_summary");
     var p_summary = $("#p_summary");
 
-    var div_qa = $("#div_qa");
-    var frm_qa = $("#frm_qa");
-    var ta_query = $("#ta_query");
-
     var div_answer = $("#div_answer");
     var p_answer = $("#p_answer");
-
 
     var company_name = new URLSearchParams(window.location.search).get("company_name");
     var lang;
@@ -53,15 +58,14 @@ $(document).ready(function () {
         div_summary.hide();
         p_summary.empty();
 
-        div_qa.hide();
         if (lang == "zh-CN") {
-            ta_query.text(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
+            qa_query.text(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
         } else if (lang == "zh-HK" || lang == "zh-TW") {
-            ta_query.text(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
+            qa_query.text(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
         } else if (lang == "ja-JP") {
-            ta_query.text(company_name + "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
+            qa_query.text(company_name + "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
         } else {
-            ta_query.text("What is the negative news about " + company_name + "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
+            qa_query.text("What is the negative news about " + company_name + "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
         }
 
         div_answer.hide();
@@ -69,7 +73,6 @@ $(document).ready(function () {
 
         form_data = $(this).serializeArray();
         form_data.push({ "name": "company_name", "value": company_name });
-        console.log(form_data);
 
         $.ajax({
             // url: "http://localhost:8000/cdd_with_llm/web_search",
@@ -123,8 +126,9 @@ $(document).ready(function () {
         });
     });
 
-    btn_tagging.on("click", function (e) {
+    frm_tagging.on("submit", function (e) {
         e.preventDefault();
+        div_tagging_frm.hide();
 
         $.ajax({
             // url: "http://localhost:8000/cdd_with_llm/fca_tagging",
@@ -132,6 +136,9 @@ $(document).ready(function () {
             data: {
                 "company_name": company_name,
                 "lang": lang,
+                "strategy": $("#tagging_strategy").val(),
+                "chunk_size": $("#tagging_chunk_size").val(),
+                "llm_provider": $("#tagging_llm_provider").val(),
             },
             type: "GET",
             beforeSend: function () {
@@ -151,17 +158,21 @@ $(document).ready(function () {
         });
     });
 
-    btn_summary.on("click", function (e) {
+    frm_summary.on("submit", function (e) {
         e.preventDefault();
+        div_summary_frm.hide();
         p_summary.empty();
         div_summary.hide();
 
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/summarization",
-            url: "https://tf02:8000/cdd_with_llm/summarization",
+            // url: "http://localhost:8000/cdd_with_llm/summary",
+            url: "https://tf02:8000/cdd_with_llm/summary",
             data: {
                 "company_name": company_name,
                 "lang": lang,
+                "max_words": $("#summary_max_words").val(),
+                "chunk_size": $("#summary_chunk_size").val(),
+                "llm_provider": $("#summary_llm_provider").val(),
             },
             type: "GET",
             beforeSend: function () {
@@ -181,7 +192,7 @@ $(document).ready(function () {
 
     frm_qa.on("submit", function (e) {
         e.preventDefault();
-        div_qa.hide();
+        div_qa_frm.hide();
         p_answer.empty();
         div_answer.hide();
 
@@ -191,7 +202,9 @@ $(document).ready(function () {
             data: {
                 "company_name": company_name,
                 "lang": lang,
-                "query": $("#ta_query").val(),
+                "query": $("#qa_query").val(),
+                "chunk_size": $("#qa_chunk_size").val(),
+                "llm_provider": $("#qa_llm_provider").val(),
             },
             type: "GET",
             beforeSend: function () {

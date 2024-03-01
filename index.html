@@ -54,30 +54,6 @@
                             <option value="100">100</option>
                         </select>
                     </div>
-
-                    <!-- <div class="row">
-                        <label for="embedding_provider">Choose an embedding provider:</label>
-                    </div>
-                    <div class="row">
-                        <select id="embedding_provider" name="embedding_provider">
-                            <option value="AzureOpenAI">Azure OpenAI</option>
-                            <option value="OpenAI">OpenAI</option>
-                            <option value="Alibaba">Alibaba</option>
-                            <option value="Baidu">Baidu</option>
-                        </select>
-                    </div> -->
-
-                    <!-- <div class="row">
-                        <label for="llm_provider">Choose a LLM provider:</label>
-                    </div>
-                    <div class="row">
-                        <select id="llm_provider" name="llm_provider">
-                            <option value="AzureOpenAI">Azure OpenAI</option>
-                            <option value="OpenAI">OpenAI</option>
-                            <option value="Alibaba">Alibaba</option>
-                            <option value="Baidu">Baidu</option>
-                        </select>
-                    </div> -->
                     <div class="row">
                         <br><br>
                     </div>
@@ -104,51 +80,176 @@
                         <button id="btn_crawler">Get Full Text</button>
                     </div>
                     <div class="col-25">
-                        <button id="btn_tagging">FCA Tagging</button>
+                        <button id="btn_tagging"
+                            onclick="document.getElementById('div_tagging_frm').style.display='block'">FC
+                            Tagging</button>
                     </div>
                     <div class="col-25">
-                        <button id="btn_summary">Summrization</button>
+                        <button id="btn_summary"
+                            onclick="document.getElementById('div_summary_frm').style.display='block'">Summary</button>
                     </div>
                     <div class="col-25">
-                        <button id="btn_qa" onclick="document.getElementById('div_qa').style.display='block'">Question
+                        <button id="btn_qa"
+                            onclick="document.getElementById('div_qa_frm').style.display='block'">Question
                             Answering</button>
                     </div>
                 </div>
             </div>
 
-            <div id="div_qa" class="modal">
-                <form id="frm_qa" class="modal-content animate">
+            <div id="div_tagging_frm" class="modal">
+                <form id="frm_tagging" class="modal-content animate">
                     <div class="container_nomargin">
                         <div class="row">
-                            <label for="ta_query">Your Question:</label>
+                            <label for="tagging_strategy">Tagging strategy:</label>
                         </div>
                         <div class="row">
-                            <textarea id="ta_query" name="ta_query" style="height: 150px;"></textarea>
+                            <select id="tagging_strategy" name="tagging_strategy">
+                                <option value="first">First chunck (less LLM calls, less accuracy)</option>
+                                <option value="all" selected>All chunks (more LLM calls, more accuracy)</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <label for="tagging_chunk_size">Chunk size:</label>
+                        </div>
+                        <div class="row">
+                            <select id="tagging_chunk_size" name="tagging_chunk_size">
+                                <option value="1000">1000 tokens</option>
+                                <option value="2000" selected>2000 tokens</option>
+                                <option value="3000">3000 tokens</option>
+                                <option value="4000">4000 tokens</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <label for="tagging_llm_provider">LLM provider:</label>
+                        </div>
+                        <div class="row">
+                            <select id="tagging_llm_provider" name="tagging_llm_provider">
+                                <option value="AzureOpenAI">Azure OpenAI</option>
+                                <option value="OpenAI">OpenAI</option>
+                                <option value="Alibaba">Alibaba</option>
+                            </select>
                         </div>
                         <div class="row">
                             <br><br>
                         </div>
                         <div class="row">
                             <div class="col-50">
-                                <button type="submit">Make an answer</button>
+                                <button type="submit">Submit</button>
                             </div>
                             <div class="col-50">
                                 <button type="button"
-                                    onclick="document.getElementById('div_qa').style.display='none'">Cancel</button>
+                                    onclick="document.getElementById('div_tagging_frm').style.display='none'">Cancel</button>
                             </div>
                         </div>
                     </div>
                 </form>
             </div>
 
-            <script>
+            <div id="div_summary_frm" class="modal">
+                <form id="frm_summary" class="modal-content animate">
+                    <div class="container_nomargin">
+                        <div class="row">
+                            <label for="summary_max_words">Maximum number of words:</label>
+                        </div>
+                        <div class="row">
+                            <select id="summary_max_words" name="summary_max_words">
+                                <option value="100">100</option>
+                                <option value="200">200</option>
+                                <option value="200" selected>300</option>
+                                <option value="200">500</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <label for="summary_chunk_size">Chunk size:</label>
+                        </div>
+                        <div class="row">
+                            <select id="summary_chunk_size" name="summary_chunk_size">
+                                <option value="1000">1000 tokens</option>
+                                <option value="2000" selected>2000 tokens</option>
+                                <option value="3000">3000 tokens</option>
+                                <option value="4000">4000 tokens</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <label for="summary_llm_provider">LLM provider:</label>
+                        </div>
+                        <div class="row">
+                            <select id="summary_llm_provider" name="summary_llm_provider">
+                                <option value="AzureOpenAI">Azure OpenAI</option>
+                                <option value="OpenAI">OpenAI</option>
+                                <option value="Alibaba">Alibaba</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <br><br>
+                        </div>
+                        <div class="row">
+                            <div class="col-50">
+                                <button type="submit">Submit</button>
+                            </div>
+                            <div class="col-50">
+                                <button type="button"
+                                    onclick="document.getElementById('div_summary_frm').style.display='none'">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div id="div_qa_frm" class="modal">
+                <form id="frm_qa" class="modal-content animate">
+                    <div class="container_nomargin">
+                        <div class="row">
+                            <label for="qa_query">Your question:</label>
+                        </div>
+                        <div class="row">
+                            <textarea id="qa_query" name="qa_query" style="height: 150px;"></textarea>
+                        </div>
+                        <div class="row">
+                            <label for="qa_chunk_size">Chunk size:</label>
+                        </div>
+                        <div class="row">
+                            <select id="qa_chunk_size" name="qa_chunk_size">
+                                <option value="1000">1000 tokens</option>
+                                <option value="2000" selected>2000 tokens</option>
+                                <option value="3000">3000 tokens</option>
+                                <option value="4000">4000 tokens</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <label for="qa_llm_provider">LLM provider:</label>
+                        </div>
+                        <div class="row">
+                            <select id="qa_llm_provider" name="qa_llm_provider">
+                                <option value="AzureOpenAI">Azure OpenAI</option>
+                                <option value="OpenAI">OpenAI</option>
+                                <option value="Alibaba">Alibaba</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <br><br>
+                        </div>
+                        <div class="row">
+                            <div class="col-50">
+                                <button type="submit">Submit</button>
+                            </div>
+                            <div class="col-50">
+                                <button type="button"
+                                    onclick="document.getElementById('div_qa_frm').style.display='none'">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- <script>
                 var modal = document.getElementById("div_qa");
                 window.onclick = function (event) {
                     if (event.target == modal) {
                         modal.style.display = "none";
                     }
                 }
-            </script>
+            </script> -->
 
             <div id="div_summary" class="container hide">
                 <h3>Summary</h3>

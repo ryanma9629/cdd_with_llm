@@ -53,7 +53,7 @@ async def contents_from_crawler(company_name: str,
 @app.get("/cdd_with_llm/fca_tagging")
 async def fca_tagging(company_name: str,
                       lang: str = "en-US",
-                      strategy: str = "first-sus",  # "first", "first-sus"
+                      strategy: str = "most-serious",  # "first", "most-serious"
                       chunk_size: int = 2000,
                       chunk_overlap: int = 100,
                       llm_provider: str = "AzureOpenAI",
@@ -72,9 +72,10 @@ async def fca_tagging(company_name: str,
     return df_merged2.sort_values(by="url").to_html(table_id="tbl_search_results", render_links=True, index=False)
 
 
-@app.get("/cdd_with_llm/summarization")
-async def summarization(company_name: str,
+@app.get("/cdd_with_llm/summary")
+async def summary(company_name: str,
                         lang: str = "en-US",
+                        max_words: int = 300,
                         chunk_size: int = 2000,
                         chunk_overlap: int = 100,
                         llm_provider: str = "AzureOpenAI",
@@ -82,8 +83,8 @@ async def summarization(company_name: str,
     cdd = CDDwithLLM(company_name, lang)
     cdd.search_from_mongo()
     cdd.contents_from_mongo()
-    summary = cdd.summarization(chunk_size, chunk_overlap, llm_provider)
-    return summary
+    summ = cdd.summary(max_words, chunk_size, chunk_overlap, llm_provider)
+    return summ
 
 
 @app.get("/cdd_with_llm/qa")
@@ -94,14 +95,13 @@ async def qa(company_name: str,
              data_within_days: int = 90,
              chunk_size: int = 1000,
              chunk_overlap: int = 100,
-             embedding_provider: str = "AzureOpenAI",
              llm_provider: str = "AzureOpenAI",
              ):
     cdd = CDDwithLLM(company_name, lang)
     cdd.search_from_mongo()
     cdd.contents_from_mongo()
     answer = cdd.qa(query, with_his_data, data_within_days,
-                    chunk_size, chunk_overlap, embedding_provider, llm_provider)
+                    chunk_size, chunk_overlap, llm_provider)
     return answer
 
 

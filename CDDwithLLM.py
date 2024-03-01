@@ -17,8 +17,7 @@ from chromadb.config import Settings
 from apify_client import ApifyClient
 
 from langchain.prompts import PromptTemplate
-from langchain.chains import create_tagging_chain, load_summarize_chain, RetrievalQA
-from langchain.chains.question_answering import load_qa_chain
+from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.llms import Tongyi
@@ -65,7 +64,7 @@ class CDDwithLLM:
         else:
             self.default_search_suffix = "negative news"
             self.language = "English"
-        
+
         self.qa_template = """Use the following pieces of context to answer the question at the end.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 Keep the answer as concise as possible. Make your response in {language}.
@@ -110,8 +109,6 @@ BULLET POINT SUMMARY:"""
             },
             "required": ["types of suspected financial crimes", "probability"],
         }
-
-
 
     def web_search(self,
                    search_suffix: Optional[str] = None,
@@ -266,7 +263,7 @@ BULLET POINT SUMMARY:"""
         client.close()
 
     def fca_tagging(self,
-                    strategy: str = "first-sus",  # "first", "first-sus"
+                    strategy: str = "all",  # "first", "all"
                     chunk_size: int = 2000,
                     chunk_overlap: int = 100,
                     llm_provider: str = "AzureOpenAI") -> List[Dict]:
@@ -297,7 +294,7 @@ BULLET POINT SUMMARY:"""
                     fca_tags.append({"url": url,
                                      "type": tag["type"],
                                      "probability": tag["probability"]})
-                elif strategy == "first-sus":
+                else:  # strategy == "all":
                     p_tag_medium = {}
                     p_tag_high = {}
                     for piece in chunked_docs:
@@ -325,11 +322,11 @@ BULLET POINT SUMMARY:"""
 
         return fca_tags
 
-    def summarization(self,
-                      max_words: int = 300,
-                      chunk_size: int = 2000,
-                      chunk_overlap: int = 100,
-                      llm_provider: str = "AzureOpenAI") -> str:
+    def summary(self,
+                max_words: int = 300,
+                chunk_size: int = 2000,
+                chunk_overlap: int = 100,
+                llm_provider: str = "AzureOpenAI") -> str:
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
         elif llm_provider == "OpenAI":
@@ -341,7 +338,7 @@ BULLET POINT SUMMARY:"""
             raise ValueError(f"LLM provider {llm_provider} is not supported.")
 
         logger.info(
-            f"Documents summarrization with LLM provider {llm_provider}...")
+            f"Documents summarization with LLM provider {llm_provider}...")
         langchain_docs = []
         for item in self.web_contents:
             langchain_docs.append(
@@ -362,12 +359,12 @@ BULLET POINT SUMMARY:"""
                                                )
         try:
             with get_openai_callback() as cb:
-                summary = summarize_chain.invoke(
+                summ = summarize_chain.invoke(
                     {"input_documents": chunked_docs,
                      "max_words": max_words,
                      "language": self.language})['output_text']
                 logger.info(f"{cb.total_tokens} tokens used")
-            return summary
+            return summ
         except ValueError:
             return "I can\'t make a summary"
 
@@ -377,19 +374,20 @@ BULLET POINT SUMMARY:"""
            data_within_days: int = 90,
            chunk_size: int = 1000,
            chunk_overlap: int = 100,
-           embedding_provider: str = "AzureOpenAI",
-           llm_provider: str = "AzureOpenAI") -> Dict[str, str]:
-        if embedding_provider == "Alibaba":
+           #    embedding_provider: str = "AzureOpenAI",
+           llm_provider: str = "AzureOpenAI") -> str:
+
+        if llm_provider == "Alibaba":
             embedding = DashScopeEmbeddings(
                 dashscope_api_key=os.getenv("DASHSCOPE_API_KEY"))
-        elif embedding_provider == "OpenAI":
+        elif llm_provider == "OpenAI":
             embedding = OpenAIEmbeddings()
-        elif embedding_provider == "AzureOpenAI":
+        elif llm_provider == "AzureOpenAI":
             embedding = AzureOpenAIEmbeddings(
                 azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
         else:
             raise ValueError(
-                f"Embedding provider {embedding_provider} is not supported.")
+                f"Embedding provider {llm_provider} is not supported.")
 
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
@@ -428,7 +426,7 @@ BULLET POINT SUMMARY:"""
         chunked_docs = splitter.split_documents(langchain_docs)
 
         logger.info(
-            f"Documents embedding with provider {embedding_provider}...")
+            f"Documents embedding with provider {llm_provider}...")
 
         chroma_client = chromadb.EphemeralClient(
             Settings(anonymized_telemetry=False, allow_reset=True))
@@ -443,11 +441,11 @@ BULLET POINT SUMMARY:"""
 
         logger.info(f"Documents QA with LLM provider {llm_provider}...")
         rag_prompt = PromptTemplate.from_template(self.qa_template)
- 
+
         rag_chain = (
             {"context": itemgetter("question") | mmr_retriever,
              "question": itemgetter("question"),
-            "language": itemgetter("language"),
+             "language": itemgetter("language"),
              }
             | rag_prompt
             | llm
@@ -456,7 +454,8 @@ BULLET POINT SUMMARY:"""
 
         try:
             with get_openai_callback() as cb:
-                answer = rag_chain.invoke({"question": query, "language": self.language})
+                answer = rag_chain.invoke(
+                    {"question": query, "language": self.language})
                 logger.info(f"{cb.total_tokens} tokens used")
                 return answer
         except ValueError:  # Occurs when retriever returns nothing
@@ -481,7 +480,7 @@ if __name__ == "__main__":
 
     tags = cdd.fca_tagging(strategy="first-sus", chunk_size=2000)
     pprint.pprint(tags)
-    summary = cdd.summarization()
+    summary = cdd.summary()
     pprint.pprint(summary)
     qa = cdd.qa()
     pprint.pprint(qa)
