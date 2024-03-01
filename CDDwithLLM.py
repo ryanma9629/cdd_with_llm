@@ -9,6 +9,7 @@ import uuid
 import pprint
 from typing import Optional, List, Dict
 from datetime import datetime, timedelta
+from operator import itemgetter
 
 import pymongo
 import chromadb
@@ -16,7 +17,8 @@ from chromadb.config import Settings
 from apify_client import ApifyClient
 
 from langchain.prompts import PromptTemplate
-from langchain.chains import create_tagging_chain, load_summarize_chain
+from langchain.chains import create_tagging_chain, load_summarize_chain, RetrievalQA
+from langchain.chains.question_answering import load_qa_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import DashScopeEmbeddings
 from langchain_community.llms import Tongyi
@@ -39,84 +41,54 @@ if not logger.handlers:
 
 
 class CDDwithLLM:
-    def template_by_lang(self):
-        if self.lang == "zh-CN":
+    def __init__(
+        self,
+        company_name: str,
+        lang: str = "en-US",
+    ) -> None:
+        self.company_name = company_name
+        self.lang = lang
+        self.search_results = []
+        self.web_contents = []
+        # self.encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
+        # self.template_by_lang()
+
+        if lang == "zh-CN":
             self.default_search_suffix = "负面新闻"
-            self.qa_template = """利用下面的上下文回答后面的问题。
-如果不知道答案，就说不知道，不要试图编造答案。
-答案尽量简洁。
-
-{context}
-
-问题：{question}
-
-有用的答案："""
-            self.qa_default_query = f"""{self.company_name}有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。"""
-            self.qa_no_info = "没有足够的信息回答该问题"
-            self.summary_map = "请基于三个反引号之间文字，写出关于" + self.company_name + """的简明摘要：
-
-```{text}```
-
-简明摘要："""
-            self.summary_combine = "简要概括三个反引号之间文字，以要点形式返回关于" + self.company_name + """的描述，每个要点独立一行，不超过5行：
-
-```{text}```
-
-要点："""
-        elif self.lang == "zh-HK" or self.lang == "zh-TW":
+            self.language = "Simplified Chinese"
+        elif lang == "zh-HK" or lang == "zh-TW":
             self.default_search_suffix = "負面新聞"
-            self.qa_template = """利用下面的上下文回答後面的問題。
-如果不知道答案，就說不知道，不要試圖編造答案。
-答案儘量簡潔。
-
-{context}
-
-問題：{question}
-
-有用的答案："""
-            self.qa_default_query = f"""{self.company_name}有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。"""
-            self.qa_no_info = "沒有足夠的資訊回答該問題"
-            self.summary_map = "請基於三個反引號之間文字，寫出關於" + self.company_name + """的簡明摘要：
-
-```{text}```
-
-簡明摘要："""
-            self.summary_combine = "簡要概括三個反引號之間文字，以要點形式返回關於" + self.company_name + """的描述，每個要點獨立一行，不超過5行：
-
-```{text}```
-
-要點："""
+            self.language = "Traditional Chinese"
+        elif lang == "ja-JP":
+            self.default_search_suffix = "悪い知らせ"
+            self.language = "Japanese"
         else:
             self.default_search_suffix = "negative news"
-            self.qa_template = """Use the following pieces of context to answer the question at the end.
+            self.language = "English"
+        
+        self.qa_template = """Use the following pieces of context to answer the question at the end.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
-Keep the answer as concise as possible.
+Keep the answer as concise as possible. Make your response in {language}.
 
 {context}
 
 Question: {question}
 
 Helpful Answer:"""
-            self.qa_default_query = f"""What is the negative news about {self.company_name}? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from."""
-            self.qa_no_info = "No enough information to answer"
-            self.summary_map = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes:
+        self.qa_default_query = f"""What is the negative news about {self.company_name}? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from. Make your response in {self.language}"""
+        self.summary_map = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes:
 
 ```{text}```
 
 CONCISE SUMMARY:"""
-            self.summary_combine = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes.
-Return your response in bullet points which covers the key points of the text, with no more than 5 lines.
+        self.summary_combine = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes.
+Return your response in bullet points which covers the key points of the text, with no more than {max_words} words. Make your respopnse in {language}.
 
 ```{text}```
 
 BULLET POINT SUMMARY:"""
         self.tagging_schema = {
             "properties": {
-                # "suspected of financial crimes": {
-                #     "type": "string",
-                #     "enum": ["Suspect", "Unsuspect"],
-                #     "description": f"determine whether the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
-                # },
                 "type": {
                     "type": "string",
                     "enum": [
@@ -139,17 +111,7 @@ BULLET POINT SUMMARY:"""
             "required": ["types of suspected financial crimes", "probability"],
         }
 
-    def __init__(
-        self,
-        company_name: str,
-        lang: str = "en-US",
-    ) -> None:
-        self.company_name = company_name
-        self.lang = lang
-        self.search_results = []
-        self.web_contents = []
-        self.encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-        self.template_by_lang()
+
 
     def web_search(self,
                    search_suffix: Optional[str] = None,
@@ -165,6 +127,10 @@ BULLET POINT SUMMARY:"""
             elif self.lang == "zh-TW":
                 langchain_se = GoogleSerperAPIWrapper(
                     k=num_results, gl="tw", hl="zh-tw")
+            elif self.lang == "ja-JP":
+                langchain_se = GoogleSerperAPIWrapper(
+                    k=num_results, gl="jp", hl="ja"
+                )
             else:  # en-US
                 langchain_se = GoogleSerperAPIWrapper(k=num_results)
         elif search_engine == "Bing":
@@ -360,6 +326,7 @@ BULLET POINT SUMMARY:"""
         return fca_tags
 
     def summarization(self,
+                      max_words: int = 300,
                       chunk_size: int = 2000,
                       chunk_overlap: int = 100,
                       llm_provider: str = "AzureOpenAI") -> str:
@@ -384,18 +351,21 @@ BULLET POINT SUMMARY:"""
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         chunked_docs = splitter.split_documents(langchain_docs)
 
-        map_prompt_template = PromptTemplate(
+        map_prompt = PromptTemplate(
             template=self.summary_map, input_variables=["text"])
-        combine_prompt_template = PromptTemplate(
-            template=self.summary_combine, input_variables=["text"])
+        combine_prompt = PromptTemplate(
+            template=self.summary_combine, input_variables=["text", "max_words", "language"])
         summarize_chain = load_summarize_chain(llm,
                                                chain_type="map_reduce",
-                                               map_prompt=map_prompt_template,
-                                               combine_prompt=combine_prompt_template,
+                                               map_prompt=map_prompt,
+                                               combine_prompt=combine_prompt,
                                                )
         try:
             with get_openai_callback() as cb:
-                summary = summarize_chain.invoke(chunked_docs)['output_text']
+                summary = summarize_chain.invoke(
+                    {"input_documents": chunked_docs,
+                     "max_words": max_words,
+                     "language": self.language})['output_text']
                 logger.info(f"{cb.total_tokens} tokens used")
             return summary
         except ValueError:
@@ -473,24 +443,30 @@ BULLET POINT SUMMARY:"""
 
         logger.info(f"Documents QA with LLM provider {llm_provider}...")
         rag_prompt = PromptTemplate.from_template(self.qa_template)
+ 
         rag_chain = (
-            {"context": mmr_retriever, "question": RunnablePassthrough()}
+            {"context": itemgetter("question") | mmr_retriever,
+             "question": itemgetter("question"),
+            "language": itemgetter("language"),
+             }
             | rag_prompt
             | llm
             | StrOutputParser()
         )
+
         try:
             with get_openai_callback() as cb:
-                answer = rag_chain.invoke(query)
+                answer = rag_chain.invoke({"question": query, "language": self.language})
                 logger.info(f"{cb.total_tokens} tokens used")
                 return answer
         except ValueError:  # Occurs when retriever returns nothing
-            return self.qa_no_info
+            return "I can\'t make an answer"
 
 
 if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     cdd = CDDwithLLM("红岭创投", lang="zh-CN")
+    cdd = CDDwithLLM("红岭创投", lang="ja-JP")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
     cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
@@ -498,6 +474,7 @@ if __name__ == "__main__":
     cdd.web_search(num_results=5, search_engine="Bing")
     cdd.search_to_mongo()
     cdd.search_from_mongo()
+
     cdd.contents_from_crawler()
     cdd.contents_to_mongo()
     cdd.contents_from_mongo()
@@ -506,5 +483,5 @@ if __name__ == "__main__":
     pprint.pprint(tags)
     summary = cdd.summarization()
     pprint.pprint(summary)
-    qa = cdd.qa(with_his_data=True, data_within_days=1)
+    qa = cdd.qa()
     pprint.pprint(qa)

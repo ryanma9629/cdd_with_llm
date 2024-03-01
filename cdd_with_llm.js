@@ -55,9 +55,11 @@ $(document).ready(function () {
 
         div_qa.hide();
         if (lang == "zh-CN") {
-            ta_query.text(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL。");
+            ta_query.text(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
         } else if (lang == "zh-HK" || lang == "zh-TW") {
-            ta_query.text(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL。");
+            ta_query.text(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
+        } else if (lang == "ja-JP") {
+            ta_query.text(company_name + "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
         } else {
             ta_query.text("What is the negative news about " + company_name + "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
         }
@@ -67,7 +69,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: "http://localhost:8000/cdd_with_llm/web_search",
-            // url: "http://tf02:8000/cdd_with_llm/web_search",
+            // url: "https://tf02:8000/cdd_with_llm/web_search",
             data: $(this).serialize(),
             type: "GET",
             beforeSend: function () {
@@ -90,7 +92,7 @@ $(document).ready(function () {
         e.preventDefault();
         $.ajax({
             url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
-            // url: "http://tf02:8000/cdd_with_llm/contents_from_crawler",
+            // url: "https://tf02:8000/cdd_with_llm/contents_from_crawler",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -122,7 +124,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: "http://localhost:8000/cdd_with_llm/fca_tagging",
-            // url: "http://tf02:8000/cdd_with_llm/fca_tagging",
+            // url: "https://tf02:8000/cdd_with_llm/fca_tagging",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -152,7 +154,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: "http://localhost:8000/cdd_with_llm/summarization",
-            // url: "http://tf02:8000/cdd_with_llm/summarization",
+            // url: "https://tf02:8000/cdd_with_llm/summarization",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -181,7 +183,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: "http://localhost:8000/cdd_with_llm/qa",
-            // url: "http://tf02:8000/cdd_with_llm/qa",
+            // url: "https://tf02:8000/cdd_with_llm/qa",
             data: {
                 "company_name": company_name,
                 "lang": lang,
