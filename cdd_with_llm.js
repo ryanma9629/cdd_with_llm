@@ -33,6 +33,7 @@ $(document).ready(function () {
     var p_summary = $("#p_summary");
 
     var div_answer = $("#div_answer");
+    var p_question = $("#p_question");
     var p_answer = $("#p_answer");
 
     var company_name;
@@ -61,13 +62,13 @@ $(document).ready(function () {
         p_summary.empty();
 
         if (lang == "zh-CN") {
-            qa_query.text(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
+            qa_query.val(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
         } else if (lang == "zh-HK" || lang == "zh-TW") {
-            qa_query.text(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
+            qa_query.val(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
         } else if (lang == "ja-JP") {
-            qa_query.text(company_name + "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
+            qa_query.val(company_name + "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
         } else {
-            qa_query.text("What is the negative news about " + company_name + "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
+            qa_query.val("What is the negative news about " + company_name + "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
         }
 
         div_answer.hide();
@@ -90,7 +91,7 @@ $(document).ready(function () {
                 div_ajax.hide();
             },
         }).done(function (html) {
-            console.log(html);
+            // console.log(html);
             div_search_results.append(html);
             div_search_results.show();
             div_operation.show();
@@ -220,6 +221,7 @@ $(document).ready(function () {
         }).done(function (txt) {
             // console.log(txt);
             div_answer.show();
+            p_question.text(qa_query.val());
             p_answer.html(txt2html(txt));
         });
     });
