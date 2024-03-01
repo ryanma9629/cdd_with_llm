@@ -90,7 +90,7 @@ $(document).ready(function () {
                 div_ajax.hide();
             },
         }).done(function (html) {
-            // console.log(html);
+            console.log(html);
             div_search_results.append(html);
             div_search_results.show();
             div_operation.show();
