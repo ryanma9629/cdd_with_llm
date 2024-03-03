@@ -1,3 +1,5 @@
+const vi_deploy = false;
+
 function txt2html(txt) {
     var html = txt.replace(/(?:\r\n|\r|\n)/g, " <br><br>");
     var urlReg = /(https?:\/\/[^\s]+)/g;
@@ -37,8 +39,18 @@ $(document).ready(function () {
     var p_answer = $("#p_answer");
 
     var company_name;
+    if (vi_deploy) {
+        company_name = new URLSearchParams(window.location.search).get("company_name");
+    }
+
     var lang;
 
+    if (vi_deploy) {
+        $(".vi_deploy").remove();
+        api_host = "https://tf02:8000/";
+    } else {
+        api_host = "http://localhost:8000/";
+    }
     // var hostReg = new RegExp(/https?:\/\/[^/]+/);
 
     frm_web_search.on("submit", function (e) {
@@ -75,13 +87,21 @@ $(document).ready(function () {
         p_answer.empty();
 
         form_data = $(this).serializeArray();
+        if (vi_deploy) {
+            form_data.push({ "name": "company_name", "value": company_name });
+        }
+
         // form_data.push({ "name": "company_name", "value": company_name });
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/web_search",
+            // url: "http://localhost:8000/cdd_with_llm/web_search",
             // url: "https://tf02:8000/cdd_with_llm/web_search",
+            url: api_host + "cdd_with_llm/web_search",
             data: form_data,
             type: "GET",
+            xhrFields: {
+                withCredentials: true
+             },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.html("Making web search... may take a few seconds")
@@ -101,13 +121,17 @@ $(document).ready(function () {
     btn_crawler.on("click", function (e) {
         e.preventDefault();
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
+            // url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
             // url: "https://tf02:8000/cdd_with_llm/contents_from_crawler",
+            url: api_host + "cdd_with_llm/contents_from_crawler",
             data: {
                 "company_name": company_name,
                 "lang": lang,
             },
             type: "GET",
+            xhrFields: {
+                withCredentials: true
+             },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.text("Grabbing web conetents from each url... may take a few minutes")
@@ -134,8 +158,9 @@ $(document).ready(function () {
         div_tagging_frm.hide();
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/fca_tagging",
+            // url: "http://localhost:8000/cdd_with_llm/fca_tagging",
             // url: "https://tf02:8000/cdd_with_llm/fca_tagging",
+            url: api_host + "cdd_with_llm/fca_tagging",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -144,6 +169,9 @@ $(document).ready(function () {
                 "llm_provider": $("#tagging_llm_provider").val(),
             },
             type: "GET",
+            xhrFields: {
+                withCredentials: true
+             },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.text("Tagging for each news... may take a few minutes")
@@ -168,8 +196,9 @@ $(document).ready(function () {
         div_summary.hide();
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/summary",
+            // url: "http://localhost:8000/cdd_with_llm/summary",
             // url: "https://tf02:8000/cdd_with_llm/summary",
+            url: api_host + "cdd_with_llm/summary",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -178,6 +207,9 @@ $(document).ready(function () {
                 "llm_provider": $("#summary_llm_provider").val(),
             },
             type: "GET",
+            xhrFields: {
+                withCredentials: true
+             },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.html("Making summary for there news... may take a few minutes")
@@ -200,8 +232,9 @@ $(document).ready(function () {
         div_answer.hide();
 
         $.ajax({
-            url: "http://localhost:8000/cdd_with_llm/qa",
+            // url: "http://localhost:8000/cdd_with_llm/qa",
             // url: "https://tf02:8000/cdd_with_llm/qa",
+            url: api_host + "cdd_with_llm/qa",
             data: {
                 "company_name": company_name,
                 "lang": lang,
@@ -210,6 +243,9 @@ $(document).ready(function () {
                 "llm_provider": $("#qa_llm_provider").val(),
             },
             type: "GET",
+            xhrFields: {
+                withCredentials: true
+             },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.html("Making question-answering on these news... may take a few minutes")
