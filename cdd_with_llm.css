@@ -23,10 +23,9 @@
 
 #tbl_search_results td:nth-child(1),
 #tbl_search_results th:nth-child(1) {
-    width: 20%;
+    width: 30%;
     overflow-wrap: break-word;
 }
-
 
 #tbl_search_results tr:nth-child(even) {
     background-color: #f2f2f2;

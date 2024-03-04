@@ -28,6 +28,7 @@ from langchain_community.callbacks import get_openai_callback
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
+from langchain_community.document_transformers import EmbeddingsClusteringFilter
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings, AzureChatOpenAI, AzureOpenAIEmbeddings
 
 logger = logging.getLogger()
@@ -148,49 +149,40 @@ BULLET POINT SUMMARY:"""
             {"url": item["link"], "title": item["title"]} for item in raw_search_results]
 
     def search_to_mongo(self,
+                        userid: Optional[str] = None,
                         collection: str = "tmp_search",
-                        truncate_before_insert: bool = True) -> None:
+                        ) -> None:
         logging.info("Saving search results to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
-        if truncate_before_insert:
-            col.drop()
+
+        col.delete_many({"company_name": self.company_name,
+                         "lang": self.lang,
+                         "userid": userid})
+
         for item in self.search_results:
-            col.update_one(
-                {"company_name": self.company_name,
-                 "lang": self.lang, "url": item["url"]},
-                {
-                    "$currentDate": {
-                        "modified_date": {"$type": "date"}
-                    },
-                    "$set": {
-                        "company_name": self.company_name,
-                        "lang": self.lang,
-                        "url": item["url"],
-                        "title": item["title"]}},
-                upsert=True
-            )
+            col.insert_one({
+                "company_name": self.company_name,
+                "lang": self.lang,
+                "userid": userid,
+                "url": item["url"],
+                "title": item["title"]
+            })
+
         client.close()
 
     def search_from_mongo(self,
+                          userid: Optional[str] = None,
                           collection: str = "tmp_search",
-                          data_within_days: int = 0) -> None:
+                          ) -> None:
         logging.info("Loading search results from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
-        if data_within_days:
-            within_date = datetime.combine(
-                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
-            cursor = col.find({
-                "company_name": self.company_name,
-                "lang": self.lang,
-                "modified_date": {"$gte": within_date}
-            }, {"url": 1, "title": 1, "_id": 0})
-        else:
-            cursor = col.find({
-                "company_name": self.company_name,
-                "lang": self.lang,
-            }, {"url": 1, "title": 1, "_id": 0})
+        cursor = col.find({
+            "company_name": self.company_name,
+            "lang": self.lang,
+            "userid": userid,
+        }, {"url": 1, "title": 1, "_id": 0})
         # self.web_contents = list(cursor.sort({"url": 1}))
         self.search_results = list(cursor)
         client.close()
@@ -215,51 +207,43 @@ BULLET POINT SUMMARY:"""
                              ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
 
     def contents_from_mongo(self,
+                            userid: Optional[str] = None,
                             collection: str = "tmp_contents",
-                            data_within_days: int = 0) -> None:
+                            ) -> None:
         logging.info("Loading web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
-        if data_within_days:
-            within_date = datetime.combine(
-                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
-            cursor = col.find({
-                "company_name": self.company_name,
-                "lang": self.lang,
-                "modified_date": {"$gte": within_date}
-            }, {"url": 1, "text": 1, "_id": 0})
-        else:
-            cursor = col.find({
-                "company_name": self.company_name,
-                "lang": self.lang,
-            }, {"url": 1, "text": 1, "_id": 0})
+
+        cursor = col.find({
+            "company_name": self.company_name,
+            "lang": self.lang,
+            "userid": userid,
+        }, {"url": 1, "text": 1, "_id": 0})
         # self.web_contents = list(cursor.sort({"url": 1}))
         self.web_contents = list(cursor)
         client.close()
 
     def contents_to_mongo(self,
+                          userid: Optional[str] = None,
                           collection: str = "tmp_contents",
-                          truncate_before_insert: bool = True) -> None:
+                          ) -> None:
         logging.info("Saving web contents to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
-        if truncate_before_insert:
-            col.drop()
+
+        col.delete_many({"company_name": self.company_name,
+                         "lang": self.lang,
+                         "userid": userid})
+
         for item in self.web_contents:
-            col.update_one(
-                {"company_name": self.company_name,
-                 "lang": self.lang, "url": item["url"]},
-                {
-                    "$currentDate": {
-                        "modified_date": {"$type": "date"}
-                    },
-                    "$set": {
-                        "company_name": self.company_name,
-                        "lang": self.lang,
-                        "url": item["url"],
-                        "text": item["text"]}},
-                upsert=True
-            )
+            col.insert_one({
+                "company_name": self.company_name,
+                "lang": self.lang,
+                "userid": userid,
+                "url": item["url"],
+                "text": item["text"],
+            })
+
         client.close()
 
     def fca_tagging(self,
@@ -326,6 +310,7 @@ BULLET POINT SUMMARY:"""
                 max_words: int = 300,
                 chunk_size: int = 2000,
                 chunk_overlap: int = 100,
+                num_clusters: int = 5,
                 llm_provider: str = "AzureOpenAI") -> str:
         if llm_provider == "Alibaba":
             llm = Tongyi(model_name="qwen-max", temperature=0)
@@ -348,6 +333,19 @@ BULLET POINT SUMMARY:"""
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         chunked_docs = splitter.split_documents(langchain_docs)
 
+        # clustering docs to save llm calls
+        if llm_provider == "Alibaba":
+            embedding = DashScopeEmbeddings(
+                dashscope_api_key=os.getenv("DASHSCOPE_API_KEY"))
+        elif llm_provider == "OpenAI":
+            embedding = OpenAIEmbeddings()
+        elif llm_provider == "AzureOpenAI":
+            embedding = AzureOpenAIEmbeddings(
+                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
+            
+        repr_docs = EmbeddingsClusteringFilter(embeddings=embedding, 
+                                               num_clusters=num_clusters).transform_documents(chunked_docs)
+
         map_prompt = PromptTemplate(
             template=self.summary_map, input_variables=["text"])
         combine_prompt = PromptTemplate(
@@ -360,7 +358,7 @@ BULLET POINT SUMMARY:"""
         try:
             with get_openai_callback() as cb:
                 summ = summarize_chain.invoke(
-                    {"input_documents": chunked_docs,
+                    {"input_documents": repr_docs,
                      "max_words": max_words,
                      "language": self.language})['output_text']
                 logger.info(f"{cb.total_tokens} tokens used")

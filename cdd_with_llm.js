@@ -1,4 +1,5 @@
 const vi_deploy = false;
+const html_tags = /(<([^>]+)>)/ig;
 
 function txt2html(txt) {
     var html = txt.replace(/(?:\r\n|\r|\n)/g, " <br><br>");
@@ -7,6 +8,13 @@ function txt2html(txt) {
         return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
     })
 }
+
+function uuidv4() {
+    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}
+
 
 $(document).ready(function () {
     var div_ajax = $("#div_ajax");
@@ -53,6 +61,12 @@ $(document).ready(function () {
     }
     // var hostReg = new RegExp(/https?:\/\/[^/]+/);
 
+    var userid = localStorage.getItem("userid");
+    if (userid == null) {
+        userid = uuidv4();
+        localStorage.setItem("userid", userid);
+    }
+
     frm_web_search.on("submit", function (e) {
         e.preventDefault();
 
@@ -87,6 +101,7 @@ $(document).ready(function () {
         p_answer.empty();
 
         form_data = $(this).serializeArray();
+        form_data.push({"name": "userid", "value": userid});
         if (vi_deploy) {
             form_data.push({ "name": "company_name", "value": company_name });
         }
@@ -101,7 +116,7 @@ $(document).ready(function () {
             type: "GET",
             xhrFields: {
                 withCredentials: true
-             },
+            },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.html("Making web search... may take a few seconds")
@@ -113,6 +128,14 @@ $(document).ready(function () {
         }).done(function (html) {
             // console.log(html);
             div_search_results.append(html);
+
+            // remove html tabs in titles
+            div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
+                text_with_tags = $(this).text();
+                text_wo_tags = text_with_tags.replace(html_tags, "");
+                $(this).text(text_wo_tags);
+            });
+            
             div_search_results.show();
             div_operation.show();
         });
@@ -127,11 +150,12 @@ $(document).ready(function () {
             data: {
                 "company_name": company_name,
                 "lang": lang,
+                "userid": userid,
             },
             type: "GET",
             xhrFields: {
                 withCredentials: true
-             },
+            },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.text("Grabbing web conetents from each url... may take a few minutes")
@@ -146,6 +170,12 @@ $(document).ready(function () {
                 div_search_results.empty();
             }
             div_search_results.append(html);
+            div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
+                text_with_tags = $(this).text();
+                text_wo_tags = text_with_tags.replace(html_tags, "");
+                $(this).text(text_wo_tags);
+            });
+
             div_operation.show();
             btn_tagging.prop("disabled", false)
             btn_summary.prop("disabled", false)
@@ -164,6 +194,7 @@ $(document).ready(function () {
             data: {
                 "company_name": company_name,
                 "lang": lang,
+                "userid": userid,
                 "strategy": $("#tagging_strategy").val(),
                 "chunk_size": $("#tagging_chunk_size").val(),
                 "llm_provider": $("#tagging_llm_provider").val(),
@@ -171,7 +202,7 @@ $(document).ready(function () {
             type: "GET",
             xhrFields: {
                 withCredentials: true
-             },
+            },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.text("Tagging for each news... may take a few minutes")
@@ -186,6 +217,12 @@ $(document).ready(function () {
                 div_search_results.empty();
             }
             div_search_results.append(html);
+            div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
+                text_with_tags = $(this).text();
+                text_wo_tags = text_with_tags.replace(html_tags, "");
+                $(this).text(text_wo_tags);
+            });
+
         });
     });
 
@@ -202,6 +239,7 @@ $(document).ready(function () {
             data: {
                 "company_name": company_name,
                 "lang": lang,
+                "userid": userid,
                 "max_words": $("#summary_max_words").val(),
                 "chunk_size": $("#summary_chunk_size").val(),
                 "llm_provider": $("#summary_llm_provider").val(),
@@ -209,7 +247,7 @@ $(document).ready(function () {
             type: "GET",
             xhrFields: {
                 withCredentials: true
-             },
+            },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.html("Making summary for there news... may take a few minutes")
@@ -238,6 +276,7 @@ $(document).ready(function () {
             data: {
                 "company_name": company_name,
                 "lang": lang,
+                "userid": userid,
                 "query": $("#qa_query").val(),
                 "chunk_size": $("#qa_chunk_size").val(),
                 "llm_provider": $("#qa_llm_provider").val(),
@@ -245,7 +284,7 @@ $(document).ready(function () {
             type: "GET",
             xhrFields: {
                 withCredentials: true
-             },
+            },
             beforeSend: function () {
                 div_ajax.show();
                 p_ajax.html("Making question-answering on these news... may take a few minutes")

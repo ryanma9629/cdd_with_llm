@@ -20,14 +20,15 @@ app.add_middleware(
 
 
 @app.get("/cdd_with_llm/web_search")
-async def web_search(company_name: str,
+async def web_search(userid: str,
+                     company_name: str,
                      lang: str = "en-US",
                      search_suffix: Optional[str] = None,
                      search_engine: str = "Bing",
                      num_results: int = 5):
     cdd = CDDwithLLM(company_name, lang)
     cdd.web_search(search_suffix, search_engine, num_results)
-    cdd.search_to_mongo()
+    cdd.search_to_mongo(userid)
     # cdd.search_from_mongo()
     return pd.DataFrame(cdd.search_results).sort_values(by="url").to_html(table_id="tbl_search_results", render_links=True, index=False)
 
@@ -74,12 +75,12 @@ async def fca_tagging(company_name: str,
 
 @app.get("/cdd_with_llm/summary")
 async def summary(company_name: str,
-                        lang: str = "en-US",
-                        max_words: int = 300,
-                        chunk_size: int = 2000,
-                        chunk_overlap: int = 100,
-                        llm_provider: str = "AzureOpenAI",
-                        ):
+                  lang: str = "en-US",
+                  max_words: int = 300,
+                  chunk_size: int = 2000,
+                  chunk_overlap: int = 100,
+                  llm_provider: str = "AzureOpenAI",
+                  ):
     cdd = CDDwithLLM(company_name, lang)
     cdd.search_from_mongo()
     cdd.contents_from_mongo()
