@@ -127,10 +127,10 @@ BULLET POINT SUMMARY:"""
                     k=num_results, gl="tw", hl="zh-tw")
             elif self.lang == "ja-JP":
                 langchain_se = GoogleSerperAPIWrapper(
-                    k=num_results, gl="jp", hl="ja"
-                )
-            else:  # en-US
-                langchain_se = GoogleSerperAPIWrapper(k=num_results)
+                    k=num_results, gl="jp", hl="ja")
+            elif self.lang == "en-US":
+                langchain_se = GoogleSerperAPIWrapper(
+                    k=num_results, gl="us", hl="en")
         elif search_engine == "Bing":
             langchain_se = BingSearchAPIWrapper(
                 k=num_results, search_kwargs={"mkt": self.lang})
@@ -250,18 +250,20 @@ BULLET POINT SUMMARY:"""
                     strategy: str = "all",  # "first", "all"
                     chunk_size: int = 2000,
                     chunk_overlap: int = 100,
-                    llm_provider: str = "AzureOpenAI") -> List[Dict]:
-        if llm_provider == "Alibaba":
-            llm = Tongyi(model_name="qwen-max", temperature=0)
-        elif llm_provider == "OpenAI":
-            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
-        elif llm_provider == "AzureOpenAI":
+                    llm_model: str = "GPT4") -> List[Dict]:
+        if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
-                "AZURE_OPENAI_LLM_DEPLOY"), temperature=0)
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4"), temperature=0)
+        elif llm_model == "GPT35":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY_GPT35"), temperature=0)
+        elif llm_model == "GPT4-32k":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32k"), temperature=0)
         else:
-            raise ValueError(f"LLM provider {llm_provider} is not supported.")
+            raise ValueError(f"LLM model {llm_model} is not supported.")
 
-        logger.info(f"Documents tagging with LLM provider {llm_provider}...")
+        logger.info(f"Documents tagging with LLM model {llm_model}...")
         tagging_chain = create_tagging_chain(self.tagging_schema, llm)
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -311,19 +313,24 @@ BULLET POINT SUMMARY:"""
                 chunk_size: int = 2000,
                 chunk_overlap: int = 100,
                 num_clusters: int = 5,
-                llm_provider: str = "AzureOpenAI") -> str:
-        if llm_provider == "Alibaba":
-            llm = Tongyi(model_name="qwen-max", temperature=0)
-        elif llm_provider == "OpenAI":
-            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
-        elif llm_provider == "AzureOpenAI":
+                llm_model: str = "GPT4") -> str:
+        if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
-                "AZURE_OPENAI_LLM_DEPLOY"), temperature=0)
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4"), temperature=0)
+        elif llm_model == "GPT35":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY_GPT35"), temperature=0)
+        elif llm_model == "GPT4-32k":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32k"), temperature=0)
         else:
-            raise ValueError(f"LLM provider {llm_provider} is not supported.")
+            raise ValueError(f"LLM model {llm_model} is not supported.")
+
+        embedding = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
         logger.info(
-            f"Documents summarization with LLM provider {llm_provider}...")
+            f"Documents summarization with LLM model {llm_model}...")
         langchain_docs = []
         for item in self.web_contents:
             langchain_docs.append(
@@ -334,16 +341,7 @@ BULLET POINT SUMMARY:"""
         chunked_docs = splitter.split_documents(langchain_docs)
 
         # clustering docs to save llm calls
-        if llm_provider == "Alibaba":
-            embedding = DashScopeEmbeddings(
-                dashscope_api_key=os.getenv("DASHSCOPE_API_KEY"))
-        elif llm_provider == "OpenAI":
-            embedding = OpenAIEmbeddings()
-        elif llm_provider == "AzureOpenAI":
-            embedding = AzureOpenAIEmbeddings(
-                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
-            
-        repr_docs = EmbeddingsClusteringFilter(embeddings=embedding, 
+        repr_docs = EmbeddingsClusteringFilter(embeddings=embedding,
                                                num_clusters=num_clusters).transform_documents(chunked_docs)
 
         map_prompt = PromptTemplate(
@@ -372,30 +370,23 @@ BULLET POINT SUMMARY:"""
            data_within_days: int = 90,
            chunk_size: int = 1000,
            chunk_overlap: int = 100,
-           #    embedding_provider: str = "AzureOpenAI",
-           llm_provider: str = "AzureOpenAI") -> str:
+           #    embedding_model: str = "AzureOpenAI",
+           llm_model: str = "GPT4") -> str:
 
-        if llm_provider == "Alibaba":
-            embedding = DashScopeEmbeddings(
-                dashscope_api_key=os.getenv("DASHSCOPE_API_KEY"))
-        elif llm_provider == "OpenAI":
-            embedding = OpenAIEmbeddings()
-        elif llm_provider == "AzureOpenAI":
-            embedding = AzureOpenAIEmbeddings(
-                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
-        else:
-            raise ValueError(
-                f"Embedding provider {llm_provider} is not supported.")
-
-        if llm_provider == "Alibaba":
-            llm = Tongyi(model_name="qwen-max", temperature=0)
-        elif llm_provider == "OpenAI":
-            llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
-        elif llm_provider == "AzureOpenAI":
+        if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
-                "AZURE_OPENAI_LLM_DEPLOY"), temperature=0)
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4"), temperature=0)
+        elif llm_model == "GPT35":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY_GPT35"), temperature=0)
+        elif llm_model == "GPT4-32k":
+            llm = AzureChatOpenAI(azure_deployment=os.getenv(
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32k"), temperature=0)
         else:
-            raise ValueError(f"LLM provider {llm_provider} is not supported.")
+            raise ValueError(f"LLM model {llm_model} is not supported.")
+
+        embedding = AzureOpenAIEmbeddings(
+            azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
         query = query or self.qa_default_query
         langchain_docs = []
@@ -423,9 +414,6 @@ BULLET POINT SUMMARY:"""
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
         chunked_docs = splitter.split_documents(langchain_docs)
 
-        logger.info(
-            f"Documents embedding with provider {llm_provider}...")
-
         chroma_client = chromadb.EphemeralClient(
             Settings(anonymized_telemetry=False, allow_reset=True))
         chroma_client.reset()
@@ -437,7 +425,7 @@ BULLET POINT SUMMARY:"""
                                                       search_kwargs={"k": min(3, len(chunked_docs)),
                                                                      "fetch_k": min(5, len(chunked_docs))})
 
-        logger.info(f"Documents QA with LLM provider {llm_provider}...")
+        logger.info(f"Documents QA with LLM model {llm_model}...")
         rag_prompt = PromptTemplate.from_template(self.qa_template)
 
         rag_chain = (

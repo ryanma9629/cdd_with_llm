@@ -67,10 +67,10 @@ def fca_tagging():
 
     strategy = request.args.get("strategy")
     chunk_size = int(request.args.get("chunk_size"))
-    llm_provider = request.args.get("llm_provider")
+    llm_model = request.args.get("llm_model")
 
     tags = cdd.fca_tagging(
-        strategy=strategy, chunk_size=chunk_size, llm_provider=llm_provider)
+        strategy=strategy, chunk_size=chunk_size, llm_model=llm_model)
 
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
@@ -96,10 +96,10 @@ async def summary():
 
     max_words = int(request.args.get("max_words"))
     chunk_size = int(request.args.get("chunk_size"))
-    llm_provider = request.args.get("llm_provider")
+    llm_model = request.args.get("llm_model")
 
     summ = cdd.summary(max_words=max_words,
-                       chunk_size=chunk_size, llm_provider=llm_provider)
+                       chunk_size=chunk_size, llm_model=llm_model)
 
     return summ
 
@@ -116,10 +116,10 @@ async def qa():
 
     query = request.args.get("query")
     chunk_size = int(request.args.get("chunk_size"))
-    llm_provider = request.args.get("llm_provider")
+    llm_model = request.args.get("llm_model")
 
     answer = cdd.qa(query=query, chunk_size=chunk_size,
-                    llm_provider=llm_provider)
+                    llm_model=llm_model)
 
     return answer
 

@@ -101,7 +101,7 @@ $(document).ready(function () {
         p_answer.empty();
 
         form_data = $(this).serializeArray();
-        form_data.push({"name": "userid", "value": userid});
+        form_data.push({ "name": "userid", "value": userid });
         if (vi_deploy) {
             form_data.push({ "name": "company_name", "value": company_name });
         }
@@ -135,7 +135,7 @@ $(document).ready(function () {
                 text_wo_tags = text_with_tags.replace(html_tags, "");
                 $(this).text(text_wo_tags);
             });
-            
+
             div_search_results.show();
             div_operation.show();
         });
@@ -187,6 +187,10 @@ $(document).ready(function () {
         e.preventDefault();
         div_tagging_frm.hide();
 
+        if ($("#tbl_search_results tr th").length == 5) {
+            $("#tbl_search_results td:nth-child(4),th:nth-child(4),td:nth-child(5),th:nth-child(5)").remove();
+        }
+
         $.ajax({
             // url: "http://localhost:8000/cdd_with_llm/fca_tagging",
             // url: "https://tf02:8000/cdd_with_llm/fca_tagging",
@@ -197,7 +201,7 @@ $(document).ready(function () {
                 "userid": userid,
                 "strategy": $("#tagging_strategy").val(),
                 "chunk_size": $("#tagging_chunk_size").val(),
-                "llm_provider": $("#tagging_llm_provider").val(),
+                "llm_model": $("#tagging_llm_model").val(),
             },
             type: "GET",
             xhrFields: {
@@ -242,7 +246,7 @@ $(document).ready(function () {
                 "userid": userid,
                 "max_words": $("#summary_max_words").val(),
                 "chunk_size": $("#summary_chunk_size").val(),
-                "llm_provider": $("#summary_llm_provider").val(),
+                "llm_model": $("#summary_llm_model").val(),
             },
             type: "GET",
             xhrFields: {
@@ -279,7 +283,7 @@ $(document).ready(function () {
                 "userid": userid,
                 "query": $("#qa_query").val(),
                 "chunk_size": $("#qa_chunk_size").val(),
-                "llm_provider": $("#qa_llm_provider").val(),
+                "llm_model": $("#qa_llm_model").val(),
             },
             type: "GET",
             xhrFields: {
