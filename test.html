@@ -1,38 +1,38 @@
 <html>
-
 <head>
     <script src="jquery-3.7.1.min.js"></script>
     <script>
         $(document).ready(function () {
-            $("#btn_set").on("click", function (e) {
-                $.ajax({
-                    url: "http://localhost:5000/set_foo",
-                    type: "get",
-                    xhrFields: {
-                        withCredentials: true
-                    },
-                }).done(function (foo) {
-                    console.log(foo);
-                });
+            $.ajax({
+                url: "http://localhost:5000/set_foo",
+                type: "post",
+                crossDomain: true,
+                xhrFields: {
+                    withCredentials: true
+                },
+            }).done(function (foo) {
+                $("#p_set").append(foo);
             });
-            $("#btn_get").on("click", function (e) {
-                $.ajax({
-                    url: "http://localhost:5000/get_foo",
-                    type: "get",
-                    xhrFields: {
-                        withCredentials: true
-                    },
-                }).done(function (foo) {
-                    console.log(foo);
-                });
+
+
+            $.ajax({
+                url: "http://localhost:5000/get_foo",
+                type: "get",
+                crossDomain: true,
+                xhrFields: {
+                    withCredentials: true
+                },
+            }).done(function (foo) {
+                $("#p_get").append(foo);
             });
+
         });
     </script>
 </head>
 
 <body>
-    <button id="btn_set">set foo to 'bar'</button><br><br>
-    <button id="btn_get">get foo</button>
+    <p id="p_set">The first ajax call, set foo: </p>
+    <p id="p_get">The second ajax call, get foo: </p>
 </body>
 
 </html>

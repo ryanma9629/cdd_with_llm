@@ -1,21 +1,23 @@
 from flask import Flask, session
-from flask_cors import CORS
-from flask_session import Session
+from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, resources={r"/*": {"origins": "http://localhost:5000"}})
-app.config['SECRET_KEY'] =  "asdasdasdasda"
-app.config["SESSION_TYPE"] = "filesystem"
-Session(app)
+CORS(app, 
+     supports_credentials=True, 
+     origin='http://127.0.0.1:5500')
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
 
-@app.get("/set_foo")
+app.config['SECRET_KEY'] =  "asdasdasdasda"
+
+@app.post("/set_foo")
 def set_foo():
     session["foo"] = "bar"
-    return session["foo"]
+    return session.get("foo", "undefined")
 
 @app.get("/get_foo")
 def get_foo():
-    return session["foo"]
+    return session.get("foo", "undefined")
 
 if __name__=="__main__":
-    app.run("localhost", 5000)
+    app.run("localhost", 5000, debug=True)

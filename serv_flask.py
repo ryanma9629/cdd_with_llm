@@ -1,18 +1,25 @@
 from flask import Flask, session, request
-from flask_cors import CORS, cross_origin
+from flask_cors import CORS
 import json
 import pandas as pd
 from typing import Optional, List
 
 from CDDwithLLM import CDDwithLLM
 
+VI_DEPLOY = False
+
+if VI_DEPLOY:
+    api_host = "https://tf02:5500"
+else:
+    api_host = "http://localhost:5500"
+
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
-app.config['CORS_HEADERS'] = 'Content-Type'
+CORS(app, supports_credentials=True, origin=api_host)
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.secret_key = "192b9bdd22ab9ed4dc15f71bbf5dc987d54727823bcbf"
 
 @app.get("/cdd_with_llm/web_search")
-# @cross_origin()
 def web_search():
     company_name = request.args.get("company_name")
     lang = request.args.get("lang")
@@ -29,7 +36,6 @@ def web_search():
     return pd.DataFrame(cdd.search_results).sort_values(by="url").to_html(table_id="tbl_search_results", render_links=True, index=False)
 
 @app.get("/cdd_with_llm/contents_from_crawler")
-# @cross_origin()
 def contents_from_crawler():
     print(session)
     cdd = CDDwithLLM(session["company_name"], session["lang"])
