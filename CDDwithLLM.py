@@ -246,7 +246,7 @@ BULLET POINT SUMMARY:"""
 
         client.close()
 
-    def fca_tagging(self,
+    def fc_tagging(self,
                     strategy: str = "all",  # "first", "all"
                     chunk_size: int = 2000,
                     chunk_overlap: int = 100,
@@ -469,7 +469,7 @@ if __name__ == "__main__":
     cdd.contents_to_mongo()
     cdd.contents_from_mongo()
 
-    tags = cdd.fca_tagging(strategy="first-sus", chunk_size=2000)
+    tags = cdd.fc_tagging(strategy="first-sus", chunk_size=2000)
     pprint.pprint(tags)
     summary = cdd.summary()
     pprint.pprint(summary)

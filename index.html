@@ -100,7 +100,7 @@
                 <form id="frm_crawler" class="modal-content animate">
                     <div class="container_nomargin">
                         <div class="row">
-                            <label for="min_content_length">Minimum num of chars required:</label>
+                            <label for="min_content_length">Minimum number of characters required for each article:</label>
                         </div>
                         <div class="row">
                             <select id="min_content_length" name="min_content_length">
@@ -111,11 +111,11 @@
                         </div>
                         <div class="row">
                             <input type="checkbox" id="crawler_save" name="crawler_save" checked>
-                            <label for="crawler_save">Save web contents to persistent storage</label>
+                            <label for="crawler_save">Persistent storage for these contents</label>
                         </div>
                         <div class="row">
                             <input type="checkbox" id="crawler_load" name="crawler_load" checked>
-                            <label for="cralwer_load">Load web contents from persistent storage if available</label>
+                            <label for="cralwer_load">Load web contents from persistent storage if possible</label>
                         </div>
                         <div class="row">
                             <br><br>
@@ -164,6 +164,14 @@
                                 <option value="GPT4" selected>OpenAI GPT-4</option>
                                 <option value="GPT4-32k">OpenAI GPT-4 32k</option>
                             </select>
+                        </div>
+                        <div class="row">
+                            <input type="checkbox" id="tags_save" name="tags_save" checked>
+                            <label for="tags_save">Persistent storage for these tags</label>
+                        </div>
+                        <div class="row">
+                            <input type="checkbox" id="tags_load" name="tags_load" checked>
+                            <label for="tags_load">Load tags from persistent storage if possible</label>
                         </div>
                         <div class="row">
                             <br><br>

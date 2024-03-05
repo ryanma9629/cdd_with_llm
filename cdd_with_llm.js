@@ -197,9 +197,9 @@ $(document).ready(function () {
         }
 
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/fca_tagging",
-            // url: "https://tf02:8000/cdd_with_llm/fca_tagging",
-            url: api_host + "cdd_with_llm/fca_tagging",
+            // url: "http://localhost:8000/cdd_with_llm/fc_tagging",
+            // url: "https://tf02:8000/cdd_with_llm/fc_tagging",
+            url: api_host + "cdd_with_llm/fc_tagging",
             data: {
                 "company_name": company_name,
                 "lang": lang,

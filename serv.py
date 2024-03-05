@@ -62,7 +62,7 @@ async def fca_tagging(company_name: str,
     cdd = CDDwithLLM(company_name, lang)
     cdd.search_from_mongo()
     cdd.contents_from_mongo()
-    tags = cdd.fca_tagging(strategy, chunk_size, chunk_overlap, llm_provider)
+    tags = cdd.fc_tagging(strategy, chunk_size, chunk_overlap, llm_provider)
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
     df_merged = pd.merge(df_search_results, df_contents, how="left", on="url")

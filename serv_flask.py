@@ -26,10 +26,10 @@ def web_search():
 
     cdd = CDDwithLLM(company_name, lang)
 
-    # cdd.web_search(search_engine=search_engine, num_results=num_results)
-    # cdd.search_to_mongo(userid)
+    cdd.web_search(search_engine=search_engine, num_results=num_results)
+    cdd.search_to_mongo(userid)
 
-    cdd.search_from_mongo(userid)
+    # cdd.search_from_mongo(userid)
 
     df_search = pd.DataFrame(cdd.search_results).sort_values(by="url")
     return df_search.to_html(table_id="tbl_search_results", render_links=True, index=False)
@@ -43,9 +43,9 @@ def contents_from_crawler():
 
     cdd = CDDwithLLM(company_name, lang)
     cdd.search_from_mongo(userid)
-    # cdd.contents_from_crawler()
-    # cdd.contents_to_mongo(userid)
-    cdd.contents_from_mongo(userid)
+    cdd.contents_from_crawler()
+    cdd.contents_to_mongo(userid)
+    # cdd.contents_from_mongo(userid)
 
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
@@ -57,8 +57,8 @@ def contents_from_crawler():
     return df_merged.to_html(table_id="tbl_search_results", render_links=True, index=False)
 
 
-@app.get("/cdd_with_llm/fca_tagging")
-def fca_tagging():
+@app.get("/cdd_with_llm/fc_tagging")
+def fc_tagging():
     userid = request.args.get("userid")
     company_name = request.args.get("company_name")
     lang = request.args.get("lang")
@@ -71,7 +71,7 @@ def fca_tagging():
     chunk_size = int(request.args.get("chunk_size"))
     llm_model = request.args.get("llm_model")
 
-    tags = cdd.fca_tagging(
+    tags = cdd.fc_tagging(
         strategy=strategy, chunk_size=chunk_size, llm_model=llm_model)
 
     df_search_results = pd.DataFrame(cdd.search_results)
