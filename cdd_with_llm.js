@@ -29,6 +29,9 @@ $(document).ready(function () {
     var btn_summary = $("#btn_summary");
     var btn_qa = $("#btn_qa");
 
+    var div_crawler_frm = $("#div_crawler_frm");
+    var frm_cralwer = $("#frm_crawler");
+
     var div_tagging_frm = $("#div_tagging_frm");
     var frm_tagging = $("#frm_tagging");
 
@@ -141,8 +144,10 @@ $(document).ready(function () {
         });
     });
 
-    btn_crawler.on("click", function (e) {
+    frm_cralwer.on("submit", function (e) {
         e.preventDefault();
+        div_crawler_frm.hide();
+        
         $.ajax({
             // url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
             // url: "https://tf02:8000/cdd_with_llm/contents_from_crawler",
@@ -245,6 +250,8 @@ $(document).ready(function () {
                 "lang": lang,
                 "userid": userid,
                 "max_words": $("#summary_max_words").val(),
+                "clus_docs": $("#clus_docs").is(":checked"),
+                "num_clus": $("#num_clus").val(),
                 "chunk_size": $("#summary_chunk_size").val(),
                 "llm_model": $("#summary_llm_model").val(),
             },

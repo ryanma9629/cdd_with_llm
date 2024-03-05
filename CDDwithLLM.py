@@ -259,7 +259,7 @@ BULLET POINT SUMMARY:"""
                 "AZURE_OPENAI_LLM_DEPLOY_GPT35"), temperature=0)
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
-                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32k"), temperature=0)
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
         else:
             raise ValueError(f"LLM model {llm_model} is not supported.")
 
@@ -312,7 +312,8 @@ BULLET POINT SUMMARY:"""
                 max_words: int = 300,
                 chunk_size: int = 2000,
                 chunk_overlap: int = 100,
-                num_clusters: int = 5,
+                clus_docs: bool = True,
+                num_clus: int = 5,
                 llm_model: str = "GPT4") -> str:
         if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
@@ -322,7 +323,7 @@ BULLET POINT SUMMARY:"""
                 "AZURE_OPENAI_LLM_DEPLOY_GPT35"), temperature=0)
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
-                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32k"), temperature=0)
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
         else:
             raise ValueError(f"LLM model {llm_model} is not supported.")
 
@@ -341,8 +342,12 @@ BULLET POINT SUMMARY:"""
         chunked_docs = splitter.split_documents(langchain_docs)
 
         # clustering docs to save llm calls
-        repr_docs = EmbeddingsClusteringFilter(embeddings=embedding,
-                                               num_clusters=num_clusters).transform_documents(chunked_docs)
+        if clus_docs:
+            num_clus = min(num_clus, len(chunked_docs))
+            repr_docs = EmbeddingsClusteringFilter(embeddings=embedding,
+                                                   num_clusters=num_clus).transform_documents(chunked_docs)
+        else:
+            repr_docs = chunked_docs
 
         map_prompt = PromptTemplate(
             template=self.summary_map, input_variables=["text"])
@@ -381,7 +386,7 @@ BULLET POINT SUMMARY:"""
                 "AZURE_OPENAI_LLM_DEPLOY_GPT35"), temperature=0)
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
-                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32k"), temperature=0)
+                "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
         else:
             raise ValueError(f"LLM model {llm_model} is not supported.")
 

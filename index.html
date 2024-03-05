@@ -76,7 +76,9 @@
             <div id="div_operation" class="container hide">
                 <div class="row">
                     <div class="col-25">
-                        <button id="btn_crawler">Get Full Text</button>
+                        <button id="btn_crawler"
+                            onclick="document.getElementById('div_crawler_frm').style.display='block'">Get Full
+                            Text</button>
                     </div>
                     <div class="col-25">
                         <button id="btn_tagging"
@@ -94,7 +96,42 @@
                     </div>
                 </div>
             </div>
-
+            <div id="div_crawler_frm" class="modal">
+                <form id="frm_crawler" class="modal-content animate">
+                    <div class="container_nomargin">
+                        <div class="row">
+                            <label for="min_content_length">Minimum num of chars required:</label>
+                        </div>
+                        <div class="row">
+                            <select id="min_content_length" name="min_content_length">
+                                <option value="50">50</option>
+                                <option value="100" selected>100</option>
+                                <option value="200">200</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <input type="checkbox" id="crawler_save" name="crawler_save" checked>
+                            <label for="crawler_save">Save web contents to persistent storage</label>
+                        </div>
+                        <div class="row">
+                            <input type="checkbox" id="crawler_load" name="crawler_load" checked>
+                            <label for="cralwer_load">Load web contents from persistent storage if available</label>
+                        </div>
+                        <div class="row">
+                            <br><br>
+                        </div>
+                        <div class="row">
+                            <div class="col-50">
+                                <button type="submit">Submit</button>
+                            </div>
+                            <div class="col-50">
+                                <button type="button"
+                                    onclick="document.getElementById('div_crawler_frm').style.display='none'">Cancel</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
             <div id="div_tagging_frm" class="modal">
                 <form id="frm_tagging" class="modal-content animate">
                     <div class="container_nomargin">
@@ -156,6 +193,20 @@
                                 <option value="200">200</option>
                                 <option value="200" selected>300</option>
                                 <option value="200">500</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <input type="checkbox" id="clus_docs" name="clus_docs" checked onchange="document.getElementById('num_clus').disabled=!this.checked;">
+                            <label for="clus_docs">
+                                Cluster documents before summarization (with less LLM calls)
+                            </label>
+                        </div>
+                        <div class="row">
+                            <label for="num_clus">Number of clusters:</label>
+                            <select id="num_clus" name="num_clus">
+                                <option value="3">3</option>
+                                <option value="5" selected>5</option>
+                                <option value="10">10</option>
                             </select>
                         </div>
                         <div class="row">
