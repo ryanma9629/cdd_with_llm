@@ -114,7 +114,8 @@ BULLET POINT SUMMARY:"""
     def web_search(self,
                    search_suffix: Optional[str] = None,
                    search_engine: str = "Bing",
-                   num_results: int = 10) -> None:
+                   num_results: int = 10,
+                   ) -> None:
         if search_engine == "Google":
             if self.lang == "zh-CN":
                 langchain_se = GoogleSerperAPIWrapper(
@@ -150,11 +151,11 @@ BULLET POINT SUMMARY:"""
 
     def search_to_mongo(self,
                         userid: Optional[str] = None,
-                        collection: str = "tmp_search",
+                        tmp_collection: str = "tmp_search",
                         ) -> None:
         logging.info("Saving search results to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[collection]
+        col = client.cdd_with_llm[tmp_collection]
 
         col.delete_many({"company_name": self.company_name,
                          "lang": self.lang,
@@ -173,11 +174,11 @@ BULLET POINT SUMMARY:"""
 
     def search_from_mongo(self,
                           userid: Optional[str] = None,
-                          collection: str = "tmp_search",
+                          tmp_collection: str = "tmp_search",
                           ) -> None:
         logging.info("Loading search results from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[collection]
+        col = client.cdd_with_llm[tmp_collection]
         cursor = col.find({
             "company_name": self.company_name,
             "lang": self.lang,
@@ -187,32 +188,13 @@ BULLET POINT SUMMARY:"""
         self.search_results = list(cursor)
         client.close()
 
-    def contents_from_crawler(self,
-                              min_text_length: int = 0) -> None:
-        logger.info("Getting detailed web contents from each url...")
-        apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
-        actor_call = apify_client.actor("apify/website-content-crawler").call(
-            run_input={
-                "startUrls": [{"url": item["url"]} for item in self.search_results],
-                "crawlerType": "cheerio",
-                "maxCrawlDepth": 0,
-                "maxSessionRotations": 0,
-                "maxRequestRetries": 0,
-                "proxyConfiguration": {"useApifyProxy": True},
-            }
-        )
-        apify_dataset = (apify_client.dataset(
-            actor_call["defaultDatasetId"]).list_items().items)
-        self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
-                             ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
-
     def contents_from_mongo(self,
                             userid: Optional[str] = None,
-                            collection: str = "tmp_contents",
+                            tmp_collection: str = "tmp_contents",
                             ) -> None:
         logging.info("Loading web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[collection]
+        col = client.cdd_with_llm[tmp_collection]
 
         cursor = col.find({
             "company_name": self.company_name,
@@ -225,11 +207,11 @@ BULLET POINT SUMMARY:"""
 
     def contents_to_mongo(self,
                           userid: Optional[str] = None,
-                          collection: str = "tmp_contents",
+                          tmp_collection: str = "tmp_contents",
                           ) -> None:
         logging.info("Saving web contents to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[collection]
+        col = client.cdd_with_llm[tmp_collection]
 
         col.delete_many({"company_name": self.company_name,
                          "lang": self.lang,
@@ -246,11 +228,38 @@ BULLET POINT SUMMARY:"""
 
         client.close()
 
+    def contents_from_crawler(self,
+                              min_text_length: int = 100,
+                              persist_collection = "web_contents",
+                              contents_save: bool = True,
+                              contents_load: bool = True,) -> None:
+        logger.info("Getting detailed web contents from each url...")
+
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+
+        apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
+        actor_call = apify_client.actor("apify/website-content-crawler").call(
+            run_input={
+                "startUrls": [{"url": item["url"]} for item in self.search_results],
+                "crawlerType": "cheerio",
+                "maxCrawlDepth": 0,
+                "maxSessionRotations": 0,
+                "maxRequestRetries": 0,
+                "proxyConfiguration": {"useApifyProxy": True},
+            }
+        )
+        apify_dataset = (apify_client.dataset(
+            actor_call["defaultDatasetId"]).list_items().items)
+        self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
+                             ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
+
+
+
     def fc_tagging(self,
-                    strategy: str = "all",  # "first", "all"
-                    chunk_size: int = 2000,
-                    chunk_overlap: int = 100,
-                    llm_model: str = "GPT4") -> List[Dict]:
+                   strategy: str = "all",  # "first", "all"
+                   chunk_size: int = 2000,
+                   chunk_overlap: int = 100,
+                   llm_model: str = "GPT4") -> List[Dict]:
         if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4"), temperature=0)
