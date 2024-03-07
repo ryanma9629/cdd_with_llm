@@ -205,7 +205,7 @@
                             </select>
                         </div>
                         <div class="row">
-                            <input type="checkbox" id="summary_clus_docs" name="summary_clus_docs" checked onchange="document.getElementById('num_clus').disabled=!this.checked;">
+                            <input type="checkbox" id="summary_clus_docs" name="summary_clus_docs" checked onchange="document.getElementById('summary_num_clus').disabled=!this.checked;">
                             <label for="summary_clus_docs">
                                 Cluster documents before summarization (with less LLM calls)
                             </label>
@@ -213,7 +213,7 @@
                         <div class="row">
                             <label for="summary_num_clus">Number of clusters:</label>
                             <select id="summary_num_clus" name="summary_num_clus">
-                                <option value="3">2</option>
+                                <option value="2">2</option>
                                 <option value="5" selected>5</option>
                                 <option value="10">10</option>
                             </select>
@@ -262,7 +262,23 @@
                             <label for="qa_query">Your question:</label>
                         </div>
                         <div class="row">
-                            <textarea id="qa_query" name="qa_query" style="height: 150px;"></textarea>
+                            <textarea id="qa_query" name="qa_query" style="height: 100px;"></textarea>
+                        </div>
+                        <div class="row">
+                            <input type="checkbox" id="with_his_data" name="with_his_data" onchange="document.getElementById('data_within_days').disabled=!this.checked;">
+                            <label for="with_his_data">
+                                Also load historical documents to answer this
+                            </label>
+                        </div>
+                        <div class="row">
+                            <label for="data_within_days">Historical documents no older than:</label>
+                            <select id="data_within_days" name="data_within_days" disabled>
+                                <option value="7">a week</option>
+                                <option value="30">a month</option>
+                                <option value="90" selected>three months</option>
+                                <option value="180">six months</option>
+                                <option value="365">a year</option>
+                            </select>
                         </div>
                         <div class="row">
                             <label for="qa_chunk_size">Chunk size:</label>

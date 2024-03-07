@@ -43,8 +43,8 @@ def web_search():
 @app.get("/cdd_with_llm/contents_from_crawler")
 def contents_from_crawler():
     min_content_length = int(request.args.get("min_content_length"))
-    contents_load = bool(request.args.get("contents_load"))
-    contents_save = bool(request.args.get("contents_save"))
+    contents_load = request.args.get("contents_load") == "true"
+    contents_save = request.args.get("contents_save") == "true"
 
     cdd = session["cdd"]
     cdd.contents_from_crawler(min_content_length, contents_load, contents_save)
@@ -67,8 +67,8 @@ def fc_tagging():
     strategy = request.args.get("tagging_strategy")
     chunk_size = int(request.args.get("tagging_chunk_size"))
     llm_model = request.args.get("tagging_llm_model")
-    tags_load = bool(request.args.get("tags_load"))
-    tags_save = bool(request.args.get("tags_save"))
+    tags_load = request.args.get("tags_load") == "true"
+    tags_save = request.args.get("tags_save") == "true"
 
     tags = cdd.fc_tagging(
         strategy=strategy, chunk_size=chunk_size, llm_model=llm_model, tags_load=tags_load, tags_save=tags_save)
@@ -86,12 +86,12 @@ def fc_tagging():
 
 
 @app.get("/cdd_with_llm/summary")
-async def summary():
+def summary():
     cdd = session["cdd"]
 
     max_words = int(request.args.get("summary_max_words"))
-    clus_docs = bool(request.args.get("summary_clus_docs"))
-    num_clus = int(request.args.get("summary_num_clus"))
+    clus_docs = request.args.get("summary_clus_docs") == "true"
+    num_clus = int(request.args.get("summary_num_clus", "5"))
     chunk_size = int(request.args.get("summary_chunk_size"))
     llm_model = request.args.get("summary_llm_model")
 
@@ -102,15 +102,17 @@ async def summary():
 
 
 @app.get("/cdd_with_llm/qa")
-async def qa():
+def qa():
     cdd = session["cdd"]
 
     query = request.args.get("qa_query")
+    with_his_data = request.args.get("with_his_data") == "true"
+    data_within_days = int(request.args.get("data_within_days", "90"))
     chunk_size = int(request.args.get("qa_chunk_size"))
     llm_model = request.args.get("qa_llm_model")
 
-    answer = cdd.qa(query=query, chunk_size=chunk_size,
-                    llm_model=llm_model)
+    answer = cdd.qa(query=query, with_his_data=with_his_data,
+                    data_within_days=data_within_days, chunk_size=chunk_size, llm_model=llm_model)
 
     return answer
 
