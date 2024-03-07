@@ -1,5 +1,4 @@
 **/__pycache__
-# **/test.py
 /chroma
 /qa
 /db
@@ -11,3 +10,5 @@
 *.pem
 env.sh
 nohup.out
+test.py
+test.html

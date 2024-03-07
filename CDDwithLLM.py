@@ -187,6 +187,8 @@ BULLET POINT SUMMARY:"""
 
         web_contents = list(cursor)
         client.close()
+        logger.info(
+            f"{len(web_contents)} existing web contents is/are loaded from MongoDB.")
         return web_contents
 
     def contents_to_mongo(self,
@@ -218,9 +220,9 @@ BULLET POINT SUMMARY:"""
                               min_content_length: int = 100,
                               contents_load: bool = True,
                               contents_save: bool = True,) -> None:
-        logger.info("Getting detailed web contents from each url...")
+        logger.info(
+            f"Grabbing web contents with Apify/website-content-crawler...")
 
-        # urls =  [{"url": item["url"]} for item in self.search_results]
         urls = [item["url"] for item in self.search_results]
         web_contents = []
         if contents_load:
@@ -232,6 +234,9 @@ BULLET POINT SUMMARY:"""
                 urls_tofetch = urls
         else:
             urls_tofetch = urls
+
+        logger.info(
+            f"Grabbing web contents from {len(urls_tofetch)} url(s)...")
 
         if urls_tofetch:
             apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
@@ -330,6 +335,7 @@ BULLET POINT SUMMARY:"""
 
         tags = list(cursor)
         client.close()
+        logger.info(f"{len(tags)} existing tags is/are loaded from MongoDB.")
         return tags
 
     def fc_tagging(self,
@@ -368,6 +374,7 @@ BULLET POINT SUMMARY:"""
         else:
             urls_totag = urls
 
+        logger.info(f"Generating tags for {len(urls_totag)} document(s)...")
         tags = []
         if urls_totag:
             contents_totag = []
@@ -486,7 +493,7 @@ BULLET POINT SUMMARY:"""
            query: Optional[str] = None,
            with_his_data: bool = False,
            data_within_days: int = 90,
-           chunk_size: int = 1000,
+           chunk_size: int = 2000,
            chunk_overlap: int = 100,
            #    embedding_model: str = "AzureOpenAI",
            llm_model: str = "GPT4") -> str:
@@ -506,27 +513,21 @@ BULLET POINT SUMMARY:"""
         embedding = AzureOpenAIEmbeddings(
             azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
+        logger.info(f"Documents QA with LLM model {llm_model}...")
+
         query = query or self.qa_default_query
         langchain_docs = []
         for item in self.web_contents:
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
         if with_his_data:
-            client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-            collection = client.cdd_with_llm["web_contents"]
-            within_date = datetime.combine(
-                datetime.today(), datetime.min.time()) - timedelta(data_within_days)
-            cursor = collection.find({
-                "company_name": self.company_name,
-                "lang": self.lang,
-                "modified_date": {"$gte": within_date}
-            }, {"url": 1, "text": 1, "_id": 0})
-            for doc in cursor:
+            his_data = self.contents_from_mongo(
+                data_within_days=data_within_days)
+            for doc in his_data:
                 langchain_docs.append(Document(
                     page_content=doc["text"],
                     metadata={"source": doc["url"]}
                 ))
-            client.close()
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -535,15 +536,14 @@ BULLET POINT SUMMARY:"""
         chroma_client = chromadb.EphemeralClient(
             Settings(anonymized_telemetry=False, allow_reset=True))
         chroma_client.reset()
-        langchain_chroma = Chroma(client=chroma_client,
-                                  embedding_function=embedding)
-        langchain_chroma.add_documents(chunked_docs)
+        vectordb = Chroma(client=chroma_client,
+                          embedding_function=embedding)
+        vectordb.add_documents(chunked_docs)
 
-        mmr_retriever = langchain_chroma.as_retriever(search_type="mmr",
-                                                      search_kwargs={"k": min(3, len(chunked_docs)),
-                                                                     "fetch_k": min(5, len(chunked_docs))})
+        mmr_retriever = vectordb.as_retriever(search_type="mmr",
+                                              search_kwargs={"k": min(3, len(chunked_docs)),
+                                                             "fetch_k": min(5, len(chunked_docs))})
 
-        logger.info(f"Documents QA with LLM model {llm_model}...")
         rag_prompt = PromptTemplate.from_template(self.qa_template)
 
         rag_chain = (
@@ -567,19 +567,24 @@ BULLET POINT SUMMARY:"""
 
 
 if __name__ == "__main__":
-    # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
+
     cdd = CDDwithLLM("红岭创投", lang="zh-CN")
-    # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
+
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
+    # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     # cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
+    # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
+
     cdd.web_search(num_results=5, search_engine="Bing")
     cdd.contents_from_crawler()
 
-    # tags = cdd.fc_tagging(strategy="first", llm_model="GPT35")
+    # tags = cdd.fc_tagging()
     # pprint.pprint(tags)
+
     # summary = cdd.summary()
     # pprint.pprint(summary)
-    # qa = cdd.qa()
-    # pprint.pprint(qa)
+
+    qa = cdd.qa()
+    pprint.pprint(qa)
