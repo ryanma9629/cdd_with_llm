@@ -132,6 +132,7 @@
                     </div>
                 </form>
             </div>
+
             <div id="div_tagging_frm" class="modal">
                 <form id="frm_tagging" class="modal-content animate">
                     <div class="container_nomargin">
@@ -160,7 +161,7 @@
                         </div>
                         <div class="row">
                             <select id="tagging_llm_model" name="tagging_llm_model">
-                                <option value="GPT35">OpenAI GPT-3.5</option>
+                                <option value="GPT35">OpenAI GPT-3.5 (not recommended)</option>
                                 <option value="GPT4" selected>OpenAI GPT-4</option>
                                 <option value="GPT4-32k">OpenAI GPT-4 32k</option>
                             </select>
@@ -204,14 +205,14 @@
                             </select>
                         </div>
                         <div class="row">
-                            <input type="checkbox" id="clus_docs" name="clus_docs" checked onchange="document.getElementById('num_clus').disabled=!this.checked;">
-                            <label for="clus_docs">
+                            <input type="checkbox" id="summary_clus_docs" name="summary_clus_docs" checked onchange="document.getElementById('num_clus').disabled=!this.checked;">
+                            <label for="summary_clus_docs">
                                 Cluster documents before summarization (with less LLM calls)
                             </label>
                         </div>
                         <div class="row">
-                            <label for="num_clus">Number of clusters:</label>
-                            <select id="num_clus" name="num_clus">
+                            <label for="summary_num_clus">Number of clusters:</label>
+                            <select id="summary_num_clus" name="summary_num_clus">
                                 <option value="3">2</option>
                                 <option value="5" selected>5</option>
                                 <option value="10">10</option>

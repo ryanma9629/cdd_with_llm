@@ -15,6 +15,46 @@ function uuidv4() {
     );
 }
 
+(function ($) {
+    $.fn.serialize = function (options) {
+        return $.param(this.serializeArray(options));
+    };
+
+    $.fn.serializeArray = function (options) {
+        var o = $.extend({
+            checkboxesAsBools: false
+        }, options || {});
+
+        var rselectTextarea = /select|textarea/i;
+        var rinput = /text|hidden|password|search|number/i;
+
+        return this.map(function () {
+            return this.elements ? $.makeArray(this.elements) : this;
+        })
+        .filter(function () {
+            return this.name && !this.disabled &&
+                (this.checked
+                || (o.checkboxesAsBools && this.type === 'checkbox')
+                || rselectTextarea.test(this.nodeName)
+                || rinput.test(this.type));
+            })
+            .map(function (i, elem) {
+                var val = $(this).val();
+                return val == null ?
+                null :
+                $.isArray(val) ?
+                $.map(val, function (val, i) {
+                    return { name: elem.name, value: val };
+                }) :
+                {
+                    name: elem.name,
+                    value: (o.checkboxesAsBools && this.type === 'checkbox') ?
+                        (this.checked ? true : false) :
+                        val
+                };
+            }).get();
+    };
+})(jQuery);
 
 $(document).ready(function () {
     var div_ajax = $("#div_ajax");
@@ -64,11 +104,11 @@ $(document).ready(function () {
     }
     // var hostReg = new RegExp(/https?:\/\/[^/]+/);
 
-    var userid = localStorage.getItem("userid");
-    if (userid == null) {
-        userid = uuidv4();
-        localStorage.setItem("userid", userid);
-    }
+    // var userid = localStorage.getItem("userid");
+    // if (userid == null) {
+    //     userid = uuidv4();
+    //     localStorage.setItem("userid", userid);
+    // }
 
     frm_web_search.on("submit", function (e) {
         e.preventDefault();
@@ -104,7 +144,7 @@ $(document).ready(function () {
         p_answer.empty();
 
         form_data = $(this).serializeArray();
-        form_data.push({ "name": "userid", "value": userid });
+        // form_data.push({ "name": "userid", "value": userid });
         if (vi_deploy) {
             form_data.push({ "name": "company_name", "value": company_name });
         }
@@ -152,11 +192,7 @@ $(document).ready(function () {
             // url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
             // url: "https://tf02:8000/cdd_with_llm/contents_from_crawler",
             url: api_host + "cdd_with_llm/contents_from_crawler",
-            data: {
-                "company_name": company_name,
-                "lang": lang,
-                "userid": userid,
-            },
+            data: $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
             xhrFields: {
                 withCredentials: true
@@ -200,14 +236,7 @@ $(document).ready(function () {
             // url: "http://localhost:8000/cdd_with_llm/fc_tagging",
             // url: "https://tf02:8000/cdd_with_llm/fc_tagging",
             url: api_host + "cdd_with_llm/fc_tagging",
-            data: {
-                "company_name": company_name,
-                "lang": lang,
-                "userid": userid,
-                "strategy": $("#tagging_strategy").val(),
-                "chunk_size": $("#tagging_chunk_size").val(),
-                "llm_model": $("#tagging_llm_model").val(),
-            },
+            data: form_data = $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
             xhrFields: {
                 withCredentials: true
@@ -245,16 +274,7 @@ $(document).ready(function () {
             // url: "http://localhost:8000/cdd_with_llm/summary",
             // url: "https://tf02:8000/cdd_with_llm/summary",
             url: api_host + "cdd_with_llm/summary",
-            data: {
-                "company_name": company_name,
-                "lang": lang,
-                "userid": userid,
-                "max_words": $("#summary_max_words").val(),
-                "clus_docs": $("#clus_docs").is(":checked"),
-                "num_clus": $("#num_clus").val(),
-                "chunk_size": $("#summary_chunk_size").val(),
-                "llm_model": $("#summary_llm_model").val(),
-            },
+            data: $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
             xhrFields: {
                 withCredentials: true
@@ -284,14 +304,7 @@ $(document).ready(function () {
             // url: "http://localhost:8000/cdd_with_llm/qa",
             // url: "https://tf02:8000/cdd_with_llm/qa",
             url: api_host + "cdd_with_llm/qa",
-            data: {
-                "company_name": company_name,
-                "lang": lang,
-                "userid": userid,
-                "query": $("#qa_query").val(),
-                "chunk_size": $("#qa_chunk_size").val(),
-                "llm_model": $("#qa_llm_model").val(),
-            },
+            data: $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
             xhrFields: {
                 withCredentials: true

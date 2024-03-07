@@ -1,23 +1,30 @@
-from flask import Flask, request
+from flask import Flask, request, session
+from flask_session import Session
 from flask_cors import CORS
+import pymongo
 import json
+import os
 import pandas as pd
 
 from CDDwithLLM import CDDwithLLM
+
 
 VI_DEPLOY = False
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins="*")
-# app.config["SESSION_COOKIE_SECURE"] = True
-# app.config["SESSION_COOKIE_SAMESITE"] = "None"
-# app.secret_key = "192b9bdd22ab9ed4dc15f71bbf5dc987d54727823bcbf"
+CORS(app, supports_credentials=True, origins="http://127.0.0.1:5500")
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "None"
+app.secret_key = "192b9bdd22ab9ed4dc15f71bbf5dc987d54727823bcbf"
+app.config["SESSION_TYPE"] = "mongodb"
+app.config["SESSION_MONGODB"] = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+
+server_session = Session(app)
 
 
 @app.get("/cdd_with_llm/web_search")
 def web_search():
-    userid = request.args.get("userid")
     company_name = request.args.get("company_name")
     lang = request.args.get("lang")
 
@@ -27,9 +34,7 @@ def web_search():
     cdd = CDDwithLLM(company_name, lang)
 
     cdd.web_search(search_engine=search_engine, num_results=num_results)
-    cdd.search_to_mongo(userid)
-
-    # cdd.search_from_mongo(userid)
+    session["cdd"] = cdd
 
     df_search = pd.DataFrame(cdd.search_results).sort_values(by="url")
     return df_search.to_html(table_id="tbl_search_results", render_links=True, index=False)
@@ -37,15 +42,13 @@ def web_search():
 
 @app.get("/cdd_with_llm/contents_from_crawler")
 def contents_from_crawler():
-    userid = request.args.get("userid")
-    company_name = request.args.get("company_name")
-    lang = request.args.get("lang")
+    min_content_length = int(request.args.get("min_content_length"))
+    contents_load = bool(request.args.get("contents_load"))
+    contents_save = bool(request.args.get("contents_save"))
 
-    cdd = CDDwithLLM(company_name, lang)
-    cdd.search_from_mongo(userid)
-    cdd.contents_from_crawler()
-    cdd.contents_to_mongo(userid)
-    # cdd.contents_from_mongo(userid)
+    cdd = session["cdd"]
+    cdd.contents_from_crawler(min_content_length, contents_load, contents_save)
+    session["cdd"] = cdd
 
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
@@ -59,20 +62,16 @@ def contents_from_crawler():
 
 @app.get("/cdd_with_llm/fc_tagging")
 def fc_tagging():
-    userid = request.args.get("userid")
-    company_name = request.args.get("company_name")
-    lang = request.args.get("lang")
+    cdd = session["cdd"]
 
-    cdd = CDDwithLLM(company_name, lang)
-    cdd.search_from_mongo(userid)
-    cdd.contents_from_mongo(userid)
-
-    strategy = request.args.get("strategy")
-    chunk_size = int(request.args.get("chunk_size"))
-    llm_model = request.args.get("llm_model")
+    strategy = request.args.get("tagging_strategy")
+    chunk_size = int(request.args.get("tagging_chunk_size"))
+    llm_model = request.args.get("tagging_llm_model")
+    tags_load = bool(request.args.get("tags_load"))
+    tags_save = bool(request.args.get("tags_save"))
 
     tags = cdd.fc_tagging(
-        strategy=strategy, chunk_size=chunk_size, llm_model=llm_model)
+        strategy=strategy, chunk_size=chunk_size, llm_model=llm_model, tags_load=tags_load, tags_save=tags_save)
 
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
@@ -88,39 +87,27 @@ def fc_tagging():
 
 @app.get("/cdd_with_llm/summary")
 async def summary():
-    userid = request.args.get("userid")
-    company_name = request.args.get("company_name")
-    lang = request.args.get("lang")
+    cdd = session["cdd"]
 
-    cdd = CDDwithLLM(company_name, lang)
-    cdd.search_from_mongo(userid)
-    cdd.contents_from_mongo(userid)
-
-    max_words = int(request.args.get("max_words"))
-    clus_docs = request.args.get("clus_docs") == "true"
-    num_clus = int(request.args.get("num_clus"))
-    chunk_size = int(request.args.get("chunk_size"))
-    llm_model = request.args.get("llm_model")
+    max_words = int(request.args.get("summary_max_words"))
+    clus_docs = bool(request.args.get("summary_clus_docs"))
+    num_clus = int(request.args.get("summary_num_clus"))
+    chunk_size = int(request.args.get("summary_chunk_size"))
+    llm_model = request.args.get("summary_llm_model")
 
     summ = cdd.summary(max_words=max_words, clus_docs=clus_docs, num_clus=num_clus,
                        chunk_size=chunk_size, llm_model=llm_model)
-    
+
     return summ
 
 
 @app.get("/cdd_with_llm/qa")
 async def qa():
-    userid = request.args.get("userid")
-    company_name = request.args.get("company_name")
-    lang = request.args.get("lang")
+    cdd = session["cdd"]
 
-    cdd = CDDwithLLM(company_name, lang)
-    cdd.search_from_mongo(userid)
-    cdd.contents_from_mongo(userid)
-
-    query = request.args.get("query")
-    chunk_size = int(request.args.get("chunk_size"))
-    llm_model = request.args.get("llm_model")
+    query = request.args.get("qa_query")
+    chunk_size = int(request.args.get("qa_chunk_size"))
+    llm_model = request.args.get("qa_llm_model")
 
     answer = cdd.qa(query=query, chunk_size=chunk_size,
                     llm_model=llm_model)

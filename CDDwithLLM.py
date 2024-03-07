@@ -19,17 +19,14 @@ from apify_client import ApifyClient
 from langchain.prompts import PromptTemplate
 from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import DashScopeEmbeddings
-from langchain_community.llms import Tongyi
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
 from langchain_community.callbacks import get_openai_callback
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.runnables import RunnablePassthrough
 from langchain_community.document_transformers import EmbeddingsClusteringFilter
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings, AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 
 logger = logging.getLogger()
 if not logger.handlers:
@@ -149,117 +146,199 @@ BULLET POINT SUMMARY:"""
         self.search_results = [
             {"url": item["link"], "title": item["title"]} for item in raw_search_results]
 
-    def search_to_mongo(self,
-                        userid: Optional[str] = None,
-                        tmp_collection: str = "tmp_search",
-                        ) -> None:
-        logging.info("Saving search results to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[tmp_collection]
-
-        col.delete_many({"company_name": self.company_name,
-                         "lang": self.lang,
-                         "userid": userid})
-
-        for item in self.search_results:
-            col.insert_one({
-                "company_name": self.company_name,
-                "lang": self.lang,
-                "userid": userid,
-                "url": item["url"],
-                "title": item["title"]
-            })
-
-        client.close()
-
-    def search_from_mongo(self,
-                          userid: Optional[str] = None,
-                          tmp_collection: str = "tmp_search",
-                          ) -> None:
-        logging.info("Loading search results from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[tmp_collection]
-        cursor = col.find({
-            "company_name": self.company_name,
-            "lang": self.lang,
-            "userid": userid,
-        }, {"url": 1, "title": 1, "_id": 0})
-        # self.web_contents = list(cursor.sort({"url": 1}))
-        self.search_results = list(cursor)
-        client.close()
-
     def contents_from_mongo(self,
-                            userid: Optional[str] = None,
-                            tmp_collection: str = "tmp_contents",
-                            ) -> None:
-        logging.info("Loading web contents from MongoDB...")
+                            urls: Optional[List] = None,
+                            data_within_days: int = 0,
+                            collection: str = "web_contents",
+                            ) -> List[Dict]:
+        logger.info("Loading existing web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[tmp_collection]
+        col = client.cdd_with_llm[collection]
 
-        cursor = col.find({
-            "company_name": self.company_name,
-            "lang": self.lang,
-            "userid": userid,
-        }, {"url": 1, "text": 1, "_id": 0})
-        # self.web_contents = list(cursor.sort({"url": 1}))
-        self.web_contents = list(cursor)
+        within_date = datetime.combine(
+            datetime.today(), datetime.min.time()) - timedelta(data_within_days)
+
+        if urls:
+            if data_within_days:
+                cursor = col.find({
+                    "company_name": self.company_name,
+                    "lang": self.lang,
+                    "url": {"$in": urls},
+                    "modified_date": {"$gte": within_date},
+                }, {"url": 1, "text": 1, "_id": 0})
+            else:
+                cursor = col.find({
+                    "company_name": self.company_name,
+                    "lang": self.lang,
+                    "url": {"$in": urls},
+                }, {"url": 1, "text": 1, "_id": 0})
+        else:
+            if data_within_days:
+                cursor = col.find({
+                    "company_name": self.company_name,
+                    "lang": self.lang,
+                    "modified_date": {"$gte": within_date},
+                }, {"url": 1, "text": 1, "_id": 0})
+            else:
+                cursor = col.find({
+                    "company_name": self.company_name,
+                    "lang": self.lang,
+                }, {"url": 1, "text": 1, "_id": 0})
+
+        web_contents = list(cursor)
         client.close()
+        return web_contents
 
     def contents_to_mongo(self,
-                          userid: Optional[str] = None,
-                          tmp_collection: str = "tmp_contents",
+                          web_contents: List[Dict],
+                          collection: str = "web_contents",
                           ) -> None:
-        logging.info("Saving web contents to MongoDB...")
+        logger.info("Saving web contents to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[tmp_collection]
+        col = client.cdd_with_llm[collection]
 
-        col.delete_many({"company_name": self.company_name,
-                         "lang": self.lang,
-                         "userid": userid})
-
-        for item in self.web_contents:
-            col.insert_one({
-                "company_name": self.company_name,
-                "lang": self.lang,
-                "userid": userid,
-                "url": item["url"],
-                "text": item["text"],
-            })
-
+        for item in web_contents:
+            col.update_one(
+                {"company_name": self.company_name,
+                 "lang": self.lang, "url": item["url"]},
+                {
+                    "$currentDate": {
+                        "modified_date": {"$type": "date"}
+                    },
+                    "$set": {
+                        "company_name": self.company_name,
+                        "lang": self.lang,
+                        "url": item["url"],
+                        "text": item["text"]}},
+                upsert=True
+            )
         client.close()
 
     def contents_from_crawler(self,
-                              min_text_length: int = 100,
-                              persist_collection = "web_contents",
-                              contents_save: bool = True,
-                              contents_load: bool = True,) -> None:
+                              min_content_length: int = 100,
+                              contents_load: bool = True,
+                              contents_save: bool = True,) -> None:
         logger.info("Getting detailed web contents from each url...")
 
+        # urls =  [{"url": item["url"]} for item in self.search_results]
+        urls = [item["url"] for item in self.search_results]
+        web_contents = []
+        if contents_load:
+            contents_loaded = self.contents_from_mongo(urls)
+            if contents_loaded:
+                urls_loaded = [item["url"] for item in contents_loaded]
+                urls_tofetch = list(set(urls) - set(urls_loaded))
+            else:
+                urls_tofetch = urls
+        else:
+            urls_tofetch = urls
+
+        if urls_tofetch:
+            apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
+            actor_call = apify_client.actor("apify/website-content-crawler").call(
+                run_input={
+                    "startUrls": [{"url": url} for url in urls_tofetch],
+                    "crawlerType": "cheerio",
+                    "maxCrawlDepth": 0,
+                    "maxSessionRotations": 0,
+                    "maxRequestRetries": 0,
+                    "proxyConfiguration": {"useApifyProxy": True},
+                }
+            )
+            apify_dataset = (apify_client.dataset(
+                actor_call["defaultDatasetId"]).list_items().items)
+            web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
+                            ["httpStatusCode"] == 200 and len(item["text"]) >= min_content_length]
+            if contents_save:
+                self.contents_to_mongo(web_contents)
+
+        if contents_load:
+            web_contents.extend(contents_loaded)
+
+        self.web_contents = web_contents
+
+    def tags_to_mongo(self,
+                      tags: List[Dict],
+                      strategy: str,
+                      chunk_size: int,
+                      llm_model: str,
+                      collection: str = "tags",
+                      ) -> None:
+        logger.info("Saving tags to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
 
-        apify_client = ApifyClient(os.getenv("APIFY_API_TOKEN"))
-        actor_call = apify_client.actor("apify/website-content-crawler").call(
-            run_input={
-                "startUrls": [{"url": item["url"]} for item in self.search_results],
-                "crawlerType": "cheerio",
-                "maxCrawlDepth": 0,
-                "maxSessionRotations": 0,
-                "maxRequestRetries": 0,
-                "proxyConfiguration": {"useApifyProxy": True},
-            }
-        )
-        apify_dataset = (apify_client.dataset(
-            actor_call["defaultDatasetId"]).list_items().items)
-        self.web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
-                             ["httpStatusCode"] == 200 and len(item["text"]) >= min_text_length]
+        for item in tags:
+            col.update_one(
+                {"company_name": self.company_name,
+                 "lang": self.lang,
+                 "strategy": strategy,
+                 "chunk_size": chunk_size,
+                 "llm_model": llm_model,
+                 "url": item["url"]},
+                {
+                    "$currentDate": {
+                        "modified_date": {"$type": "date"}
+                    },
+                    "$set": {
+                        "company_name": self.company_name,
+                        "lang": self.lang,
+                        "strategy": strategy,
+                        "chunk_size": chunk_size,
+                        "llm_model": llm_model,
+                        "url": item["url"],
+                        "type": item["type"],
+                        "probability": item["probability"]}},
+                upsert=True
+            )
+        client.close()
 
+    def tags_from_mongo(self,
+                        urls: List[Dict],
+                        strategy: str,
+                        chunk_size: int,
+                        llm_model: str,
+                        data_within_days: int = 0,
+                        collection: str = "tags",
+                        ) -> List[Dict]:
+        logger.info("Loading existing tags from MongoDB...")
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
 
+        within_date = datetime.combine(
+            datetime.today(), datetime.min.time()) - timedelta(data_within_days)
+
+        if data_within_days:
+            cursor = col.find({
+                "company_name": self.company_name,
+                "lang": self.lang,
+                "strategy": strategy,
+                "chunk_size": chunk_size,
+                "llm_model": llm_model,
+                "url": {"$in": urls},
+                "modified_date": {"$gte": within_date},
+            }, {"url": 1, "type": 1, "probability": 1, "_id": 0})
+        else:
+            cursor = col.find({
+                "company_name": self.company_name,
+                "lang": self.lang,
+                "strategy": strategy,
+                "chunk_size": chunk_size,
+                "llm_model": llm_model,
+                "url": {"$in": urls},
+            }, {"url": 1, "type": 1, "probability": 1, "_id": 0})
+
+        tags = list(cursor)
+        client.close()
+        return tags
 
     def fc_tagging(self,
                    strategy: str = "all",  # "first", "all"
                    chunk_size: int = 2000,
                    chunk_overlap: int = 100,
-                   llm_model: str = "GPT4") -> List[Dict]:
+                   llm_model: str = "GPT4",
+                   tags_load: bool = True,
+                   tags_save: bool = True) -> List[Dict]:
         if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4"), temperature=0)
@@ -276,46 +355,71 @@ BULLET POINT SUMMARY:"""
         tagging_chain = create_tagging_chain(self.tagging_schema, llm)
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        fca_tags = []
 
-        with get_openai_callback() as cb:
-            # for doc in [item["text"] for item in self.web_contents]:
+        urls = [item["url"] for item in self.search_results]
+        if tags_load:
+            tags_loaded = self.tags_from_mongo(
+                urls, strategy, chunk_size, llm_model)
+            if tags_loaded:
+                urls_loaded = [item["url"] for item in tags_loaded]
+                urls_totag = list(set(urls) - set(urls_loaded))
+            else:
+                urls_totag = urls
+        else:
+            urls_totag = urls
+
+        tags = []
+        if urls_totag:
+            contents_totag = []
             for item in self.web_contents:
-                url = item["url"]
-                doc = item["text"]
-                chunked_docs = splitter.split_text(doc)
-                if strategy == "first":
-                    tag = tagging_chain.invoke(chunked_docs[0])["text"]
-                    fca_tags.append({"url": url,
-                                     "type": tag["type"],
-                                     "probability": tag["probability"]})
-                else:  # strategy == "all":
-                    p_tag_medium = {}
-                    p_tag_high = {}
-                    for piece in chunked_docs:
-                        p_tag = tagging_chain.invoke(piece)["text"]
-                        if "probability" in p_tag.keys():
-                            if p_tag["probability"] == "medium":
-                                if not p_tag_medium:
-                                    p_tag_medium = p_tag
-                            elif p_tag["probability"] == "high":
-                                p_tag_high = p_tag
-                                break
-                    if p_tag_high:
-                        fca_tags.append({"url": url,
+                if item["url"] in urls_totag:
+                    contents_totag.append(
+                        {"url": item["url"], "text": item["text"]})
+
+            with get_openai_callback() as cb:
+                # for doc in [item["text"] for item in self.web_contents]:
+                for item in contents_totag:
+                    url = item["url"]
+                    doc = item["text"]
+                    chunked_docs = splitter.split_text(doc)
+                    if strategy == "first":
+                        tag = tagging_chain.invoke(chunked_docs[0])["text"]
+                        if tag:
+                            tags.append({"url": url,
+                                        "type": tag["type"],
+                                         "probability": tag["probability"]})
+                    else:  # strategy == "all":
+                        p_tag_medium = {}
+                        p_tag_high = {}
+                        for piece in chunked_docs:
+                            p_tag = tagging_chain.invoke(piece)["text"]
+                            if p_tag:
+                                # if "probability" in p_tag.keys():
+                                if p_tag["probability"] == "medium":
+                                    if not p_tag_medium:
+                                        p_tag_medium = p_tag
+                                elif p_tag["probability"] == "high":
+                                    p_tag_high = p_tag
+                                    break
+                        if p_tag_high:
+                            tags.append({"url": url,
                                          "type": p_tag_high["type"],
                                          "probability": p_tag_high["probability"]})
-                    elif p_tag_medium:
-                        fca_tags.append({"url": url,
+                        elif p_tag_medium:
+                            tags.append({"url": url,
                                          "type": p_tag_medium["type"],
                                          "probability": p_tag_medium["probability"]})
-                    else:
-                        fca_tags.append({"url": url,
+                        else:
+                            tags.append({"url": url,
                                          "type": "Not suspected",
                                          "probability": "low"})
-            logger.info(f"{cb.total_tokens} tokens used")
+                logger.info(f"{cb.total_tokens} tokens used")
+            if tags_save and tags:
+                self.tags_to_mongo(tags, strategy, chunk_size, llm_model)
+        if tags_load:
+            tags.extend(tags_loaded)
 
-        return fca_tags
+        return tags
 
     def summary(self,
                 max_words: int = 300,
@@ -465,22 +569,17 @@ BULLET POINT SUMMARY:"""
 if __name__ == "__main__":
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     cdd = CDDwithLLM("红岭创投", lang="zh-CN")
-    cdd = CDDwithLLM("红岭创投", lang="ja-JP")
+    # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
-    cdd = CDDwithLLM("Theranos", lang="en-US")
+    # cdd = CDDwithLLM("Theranos", lang="en-US")
     # cdd = CDDwithLLM("BridgeWater", lang="en-US")
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     cdd.web_search(num_results=5, search_engine="Bing")
-    cdd.search_to_mongo()
-    cdd.search_from_mongo()
-
     cdd.contents_from_crawler()
-    cdd.contents_to_mongo()
-    cdd.contents_from_mongo()
 
-    tags = cdd.fc_tagging(strategy="first-sus", chunk_size=2000)
-    pprint.pprint(tags)
-    summary = cdd.summary()
-    pprint.pprint(summary)
-    qa = cdd.qa()
-    pprint.pprint(qa)
+    # tags = cdd.fc_tagging(strategy="first", llm_model="GPT35")
+    # pprint.pprint(tags)
+    # summary = cdd.summary()
+    # pprint.pprint(summary)
+    # qa = cdd.qa()
+    # pprint.pprint(qa)
