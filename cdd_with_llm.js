@@ -176,6 +176,7 @@ $(document).ready(function () {
 
             div_search_results.show();
             div_operation.show();
+            btn_crawler.prop("disabled", false);
         });
     });
 
@@ -211,9 +212,10 @@ $(document).ready(function () {
             });
 
             div_operation.show();
-            btn_tagging.prop("disabled", false)
-            btn_summary.prop("disabled", false)
-            btn_qa.prop("disabled", false)
+            btn_tagging.prop("disabled", false);
+            btn_summary.prop("disabled", false);
+            btn_qa.prop("disabled", false);
+            btn_crawler.prop("disabled", true);
         });
     });
 

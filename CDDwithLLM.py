@@ -7,7 +7,6 @@ if sys.platform == "linux":
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 import json
 import pprint
-import uuid
 from datetime import datetime, timedelta
 from operator import itemgetter
 from typing import Dict, List, Optional
@@ -20,8 +19,7 @@ from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.callbacks import get_openai_callback
-from langchain_community.document_transformers import \
-    EmbeddingsClusteringFilter
+from langchain_community.document_transformers import EmbeddingsClusteringFilter
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
@@ -263,7 +261,6 @@ BULLET POINT SUMMARY:"""
 
         self.web_contents = web_contents
 
-
     def tags_from_mongo(self,
                         urls: List[Dict],
                         strategy: str,
@@ -303,8 +300,7 @@ BULLET POINT SUMMARY:"""
         client.close()
         logger.info(f"{len(tags)} existing tags is/are loaded from MongoDB.")
         return tags
-    
-    
+
     def tags_to_mongo(self,
                       tags: List[Dict],
                       strategy: str,
@@ -340,8 +336,6 @@ BULLET POINT SUMMARY:"""
                 upsert=True
             )
         client.close()
-
-
 
     def fc_tagging(self,
                    strategy: str = "all",  # "first", "all"
@@ -500,7 +494,6 @@ BULLET POINT SUMMARY:"""
            data_within_days: int = 90,
            chunk_size: int = 2000,
            chunk_overlap: int = 100,
-           #    embedding_model: str = "AzureOpenAI",
            llm_model: str = "GPT4") -> str:
 
         if llm_model == "GPT4":
@@ -526,14 +519,16 @@ BULLET POINT SUMMARY:"""
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
         if with_his_data:
-            his_data = self.contents_from_mongo(
+            his_docs = self.contents_from_mongo(
                 data_within_days=data_within_days)
-            for doc in his_data:
-                # TODO: remove duplicates
-                langchain_docs.append(Document(
-                    page_content=doc["text"],
-                    metadata={"source": doc["url"]}
-                ))
+            for his_doc in his_docs:
+                urls_current = [item.metadata["source"]
+                                for item in langchain_docs]
+                if his_doc["url"] not in urls_current:
+                    langchain_docs.append(Document(
+                        page_content=his_doc["text"],
+                        metadata={"source": his_doc["url"]}
+                    ))
 
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -592,5 +587,5 @@ if __name__ == "__main__":
     # summary = cdd.summary()
     # pprint.pprint(summary)
 
-    qa = cdd.qa()
+    qa = cdd.qa(with_his_data=True)
     pprint.pprint(qa)
