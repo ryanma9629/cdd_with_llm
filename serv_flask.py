@@ -1,13 +1,13 @@
-from flask import Flask, request, session
-from flask_session import Session
-from flask_cors import CORS
-import pymongo
-import json
 import os
+
+import jsonpickle
 import pandas as pd
+import pymongo
+from flask import Flask, request, session
+from flask_cors import CORS
+from flask_session import Session
 
 from CDDwithLLM import CDDwithLLM
-
 
 VI_DEPLOY = False
 
@@ -34,7 +34,7 @@ def web_search():
     cdd = CDDwithLLM(company_name, lang)
 
     cdd.web_search(search_engine=search_engine, num_results=num_results)
-    session["cdd"] = cdd
+    session["cdd"] = jsonpickle.encode(cdd)
 
     df_search = pd.DataFrame(cdd.search_results).sort_values(by="url")
     return df_search.to_html(table_id="tbl_search_results", render_links=True, index=False)
@@ -46,9 +46,9 @@ def contents_from_crawler():
     contents_load = request.args.get("contents_load") == "true"
     contents_save = request.args.get("contents_save") == "true"
 
-    cdd = session["cdd"]
+    cdd = jsonpickle.decode(session["cdd"])
     cdd.contents_from_crawler(min_content_length, contents_load, contents_save)
-    session["cdd"] = cdd
+    session["cdd"] = jsonpickle.encode(cdd)
 
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
@@ -62,7 +62,7 @@ def contents_from_crawler():
 
 @app.get("/cdd_with_llm/fc_tagging")
 def fc_tagging():
-    cdd = session["cdd"]
+    cdd = jsonpickle.decode(session["cdd"])
 
     strategy = request.args.get("tagging_strategy")
     chunk_size = int(request.args.get("tagging_chunk_size"))
@@ -87,7 +87,7 @@ def fc_tagging():
 
 @app.get("/cdd_with_llm/summary")
 def summary():
-    cdd = session["cdd"]
+    cdd = jsonpickle.decode(session["cdd"])
 
     max_words = int(request.args.get("summary_max_words"))
     clus_docs = request.args.get("summary_clus_docs") == "true"
@@ -103,7 +103,7 @@ def summary():
 
 @app.get("/cdd_with_llm/qa")
 def qa():
-    cdd = session["cdd"]
+    cdd = jsonpickle.decode(session["cdd"])
 
     query = request.args.get("qa_query")
     with_his_data = request.args.get("with_his_data") == "true"

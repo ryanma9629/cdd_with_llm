@@ -1,31 +1,32 @@
 import logging
 import os
 import sys
+
 if sys.platform == "linux":
     __import__("pysqlite3")
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
 import json
-import uuid
 import pprint
-from typing import Optional, List, Dict
+import uuid
 from datetime import datetime, timedelta
 from operator import itemgetter
+from typing import Dict, List, Optional
 
-import pymongo
 import chromadb
-from chromadb.config import Settings
+import pymongo
 from apify_client import ApifyClient
-
-from langchain.prompts import PromptTemplate
+from chromadb.config import Settings
 from langchain.chains import create_tagging_chain, load_summarize_chain
+from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.callbacks import get_openai_callback
+from langchain_community.document_transformers import \
+    EmbeddingsClusteringFilter
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
-from langchain_community.callbacks import get_openai_callback
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_community.document_transformers import EmbeddingsClusteringFilter
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 
 logger = logging.getLogger()
@@ -262,41 +263,6 @@ BULLET POINT SUMMARY:"""
 
         self.web_contents = web_contents
 
-    def tags_to_mongo(self,
-                      tags: List[Dict],
-                      strategy: str,
-                      chunk_size: int,
-                      llm_model: str,
-                      collection: str = "tags",
-                      ) -> None:
-        logger.info("Saving tags to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
-        col = client.cdd_with_llm[collection]
-
-        for item in tags:
-            col.update_one(
-                {"company_name": self.company_name,
-                 "lang": self.lang,
-                 "strategy": strategy,
-                 "chunk_size": chunk_size,
-                 "llm_model": llm_model,
-                 "url": item["url"]},
-                {
-                    "$currentDate": {
-                        "modified_date": {"$type": "date"}
-                    },
-                    "$set": {
-                        "company_name": self.company_name,
-                        "lang": self.lang,
-                        "strategy": strategy,
-                        "chunk_size": chunk_size,
-                        "llm_model": llm_model,
-                        "url": item["url"],
-                        "type": item["type"],
-                        "probability": item["probability"]}},
-                upsert=True
-            )
-        client.close()
 
     def tags_from_mongo(self,
                         urls: List[Dict],
@@ -337,6 +303,45 @@ BULLET POINT SUMMARY:"""
         client.close()
         logger.info(f"{len(tags)} existing tags is/are loaded from MongoDB.")
         return tags
+    
+    
+    def tags_to_mongo(self,
+                      tags: List[Dict],
+                      strategy: str,
+                      chunk_size: int,
+                      llm_model: str,
+                      collection: str = "tags",
+                      ) -> None:
+        logger.info("Saving tags to MongoDB...")
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        col = client.cdd_with_llm[collection]
+
+        for item in tags:
+            col.update_one(
+                {"company_name": self.company_name,
+                 "lang": self.lang,
+                 "strategy": strategy,
+                 "chunk_size": chunk_size,
+                 "llm_model": llm_model,
+                 "url": item["url"]},
+                {
+                    "$currentDate": {
+                        "modified_date": {"$type": "date"}
+                    },
+                    "$set": {
+                        "company_name": self.company_name,
+                        "lang": self.lang,
+                        "strategy": strategy,
+                        "chunk_size": chunk_size,
+                        "llm_model": llm_model,
+                        "url": item["url"],
+                        "type": item["type"],
+                        "probability": item["probability"]}},
+                upsert=True
+            )
+        client.close()
+
+
 
     def fc_tagging(self,
                    strategy: str = "all",  # "first", "all"
