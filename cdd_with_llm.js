@@ -114,7 +114,6 @@ $(document).ready(function () {
         e.preventDefault();
 
         company_name = $("#company_name").val();
-        // company_name = new URLSearchParams(window.location.search).get("company_name");
         lang = $("#lang").val();
 
         div_search_results.hide();
@@ -149,11 +148,7 @@ $(document).ready(function () {
             form_data.push({ "name": "company_name", "value": company_name });
         }
 
-        // form_data.push({ "name": "company_name", "value": company_name });
-
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/web_search",
-            // url: "https://tf02:8000/cdd_with_llm/web_search",
             url: api_host + "cdd_with_llm/web_search",
             data: form_data,
             type: "GET",
@@ -189,8 +184,6 @@ $(document).ready(function () {
         div_crawler_frm.hide();
         
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/contents_from_crawler",
-            // url: "https://tf02:8000/cdd_with_llm/contents_from_crawler",
             url: api_host + "cdd_with_llm/contents_from_crawler",
             data: $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
@@ -233,8 +226,6 @@ $(document).ready(function () {
         }
 
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/fc_tagging",
-            // url: "https://tf02:8000/cdd_with_llm/fc_tagging",
             url: api_host + "cdd_with_llm/fc_tagging",
             data: form_data = $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
@@ -271,8 +262,6 @@ $(document).ready(function () {
         div_summary.hide();
 
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/summary",
-            // url: "https://tf02:8000/cdd_with_llm/summary",
             url: api_host + "cdd_with_llm/summary",
             data: $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",
@@ -301,8 +290,6 @@ $(document).ready(function () {
         div_answer.hide();
 
         $.ajax({
-            // url: "http://localhost:8000/cdd_with_llm/qa",
-            // url: "https://tf02:8000/cdd_with_llm/qa",
             url: api_host + "cdd_with_llm/qa",
             data: $(this).serializeArray({checkboxesAsBools: true}),
             type: "GET",

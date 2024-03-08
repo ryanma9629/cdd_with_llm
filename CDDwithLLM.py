@@ -529,6 +529,7 @@ BULLET POINT SUMMARY:"""
             his_data = self.contents_from_mongo(
                 data_within_days=data_within_days)
             for doc in his_data:
+                # TODO: remove duplicates
                 langchain_docs.append(Document(
                     page_content=doc["text"],
                     metadata={"source": doc["url"]}
