@@ -60,51 +60,6 @@ class CDDwithLLM:
             self.default_search_suffix = "negative news"
             self.language = "English"
 
-        self.qa_template = """Use the following pieces of context to answer the question at the end.
-If you don't know the answer, just say that you don't know, don't try to make up an answer.
-Keep the answer as concise as possible. Make your response in {language}.
-
-{context}
-
-Question: {question}
-
-Helpful Answer:"""
-        self.qa_default_query = f"""What is the negative news about {self.company_name}? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from. Make your response in {self.language}"""
-        self.summary_map = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes:
-
-```{text}```
-
-CONCISE SUMMARY:"""
-        self.summary_combine = "Write a concise summary about " + self.company_name + """ using the following text delimited by triple backquotes.
-Return your response in bullet points which covers the key points of the text, with no more than {max_words} words. Make your respopnse in {language}.
-
-```{text}```
-
-BULLET POINT SUMMARY:"""
-        self.tagging_schema = {
-            "properties": {
-                "type": {
-                    "type": "string",
-                    "enum": [
-                        "Not suspected",
-                        "Financial Fraud",
-                        "Counterfeiting Currency/Financial Instruments",
-                        "Illegal Absorption of Public Deposits",
-                        "Illegal Granting of Loans",
-                        "Money Laundering",
-                        "Insider Trading",
-                        "Manipulation of Securities Markets"],
-                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Not suspected' if not suspected",
-                },
-                "probability": {
-                    "type": "string",
-                    "enum": ["low", "medium", "high"],
-                    "description": f"describes the probability that the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
-                },
-            },
-            "required": ["types of suspected financial crimes", "probability"],
-        }
-
     def web_search(self,
                    search_suffix: Optional[str] = None,
                    search_engine: str = "Bing",
@@ -350,7 +305,30 @@ BULLET POINT SUMMARY:"""
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
 
         logger.info(f"Documents tagging with LLM model {llm_model}...")
-        tagging_chain = create_tagging_chain(self.tagging_schema, llm)
+        tagging_schema = {
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "Not suspected",
+                        "Financial Fraud",
+                        "Counterfeiting Currency/Financial Instruments",
+                        "Illegal Absorption of Public Deposits",
+                        "Illegal Granting of Loans",
+                        "Money Laundering",
+                        "Insider Trading",
+                        "Manipulation of Securities Markets"],
+                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Not suspected' if not suspected",
+                },
+                "probability": {
+                    "type": "string",
+                    "enum": ["low", "medium", "high"],
+                    "description": f"describes the probability that the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
+                },
+            },
+            "required": ["types of suspected financial crimes", "probability"],
+        }
+        tagging_chain = create_tagging_chain(tagging_schema, llm)
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size, chunk_overlap=chunk_overlap)
 
@@ -457,10 +435,22 @@ BULLET POINT SUMMARY:"""
         else:
             repr_docs = chunked_docs
 
+        summary_map = f"""Write a concise summary about {self.company_name} using the following text delimited by triple backquotes:""" + """
+
+```{text}```
+
+CONCISE SUMMARY:"""
+        summary_combine = f"""Write a concise summary about {self.company_name} using the following text delimited by triple backquotes.
+Return your response in bullet points which covers the key points of the text. Make your respopnse in {self.language} with no more than {max_words} words.""" + """
+
+```{text}```
+
+BULLET POINT SUMMARY:"""
+
         map_prompt = PromptTemplate(
-            template=self.summary_map, input_variables=["text"])
+            template=summary_map, input_variables=["company_name", "text"])
         combine_prompt = PromptTemplate(
-            template=self.summary_combine, input_variables=["text", "max_words", "language"])
+            template=summary_combine, input_variables=["company_name", "language", "max_words", "text"])
         summarize_chain = load_summarize_chain(llm,
                                                chain_type="map_reduce",
                                                map_prompt=map_prompt,
@@ -468,10 +458,8 @@ BULLET POINT SUMMARY:"""
                                                )
         try:
             with get_openai_callback() as cb:
-                summ = summarize_chain.invoke(
-                    {"input_documents": repr_docs,
-                     "max_words": max_words,
-                     "language": self.language})['output_text']
+                summ = summarize_chain.invoke({"input_documents": repr_docs})[
+                    'output_text']
                 logger.info(f"{cb.total_tokens} tokens used")
             return summ
         except ValueError:
@@ -499,8 +487,21 @@ BULLET POINT SUMMARY:"""
             azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
         logger.info(f"Documents QA with LLM model {llm_model}...")
+        qa_template = f"""Use the following pieces of context to answer the question at the end.
+If you don't know the answer, just say that you don't know, don't try to make up an answer.
+Keep the answer as concise as possible. Make your response in {self.language}.""" + """
 
-        query = query or self.qa_default_query
+{context}
+
+Question: {question}
+
+Helpful Answer:"""
+        qa_default_query = f"""What is the negative news about {self.company_name}? 
+        Summarize no more than 3 major ones, list each on a separate line, 
+        and give the URL where the information came from. 
+        Make your response in {self.language}"""
+
+        query = query or qa_default_query
         langchain_docs = []
         for item in self.web_contents:
             langchain_docs.append(
@@ -532,7 +533,7 @@ BULLET POINT SUMMARY:"""
                                               search_kwargs={"k": min(3, len(chunked_docs)),
                                                              "fetch_k": min(5, len(chunked_docs))})
 
-        rag_prompt = PromptTemplate.from_template(self.qa_template)
+        rag_prompt = PromptTemplate.from_template(qa_template)
 
         rag_chain = (
             {"context": itemgetter("question") | mmr_retriever,
@@ -547,7 +548,8 @@ BULLET POINT SUMMARY:"""
         try:
             with get_openai_callback() as cb:
                 answer = rag_chain.invoke(
-                    {"question": query, "language": self.language})
+                    {"question": query,
+                     "language": self.language})
                 logger.info(f"{cb.total_tokens} tokens used")
                 return answer
         except ValueError:  # Occurs when retriever returns nothing
@@ -575,5 +577,5 @@ if __name__ == "__main__":
     summary = cdd.summary()
     pprint.pprint(summary)
 
-    qa = cdd.qa(with_his_data=True)
+    qa = cdd.qa()
     pprint.pprint(qa)
