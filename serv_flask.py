@@ -11,7 +11,6 @@ from CDDwithLLM import CDDwithLLM
 
 VI_DEPLOY = False
 
-
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins="http://127.0.0.1:5500")
 app.config["SESSION_COOKIE_SECURE"] = True

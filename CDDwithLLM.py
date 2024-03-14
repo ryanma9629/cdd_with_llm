@@ -5,11 +5,11 @@ import sys
 if sys.platform == "linux":
     __import__("pysqlite3")
     sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
-import json
 import pprint
 from datetime import datetime, timedelta
 from operator import itemgetter
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
 
 import chromadb
 import pymongo
@@ -46,8 +46,6 @@ class CDDwithLLM:
         self.lang = lang
         self.search_results = []
         self.web_contents = []
-        # self.encoded_name = uuid.uuid3(uuid.NAMESPACE_DNS, company_name).hex
-        # self.template_by_lang()
 
         if lang == "zh-CN":
             self.default_search_suffix = "负面新闻"
@@ -58,7 +56,7 @@ class CDDwithLLM:
         elif lang == "ja-JP":
             self.default_search_suffix = "悪い知らせ"
             self.language = "Japanese"
-        else:
+        elif lang == "en-US":
             self.default_search_suffix = "negative news"
             self.language = "English"
 
@@ -131,9 +129,6 @@ BULLET POINT SUMMARY:"""
         elif search_engine == "Bing":
             langchain_se = BingSearchAPIWrapper(
                 k=num_results, search_kwargs={"mkt": self.lang})
-        else:
-            raise ValueError(
-                f"Search engine {search_engine} is not supported.")
 
         logger.info(f"Getting urls from {search_engine} search...")
         search_suffix = search_suffix or self.default_search_suffix
@@ -338,7 +333,7 @@ BULLET POINT SUMMARY:"""
         client.close()
 
     def fc_tagging(self,
-                   strategy: str = "all",  # "first", "all"
+                   strategy: str = "all",
                    chunk_size: int = 2000,
                    chunk_overlap: int = 100,
                    llm_model: str = "GPT4",
@@ -353,8 +348,6 @@ BULLET POINT SUMMARY:"""
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
-        else:
-            raise ValueError(f"LLM model {llm_model} is not supported.")
 
         logger.info(f"Documents tagging with LLM model {llm_model}...")
         tagging_chain = create_tagging_chain(self.tagging_schema, llm)
@@ -383,7 +376,6 @@ BULLET POINT SUMMARY:"""
                         {"url": item["url"], "text": item["text"]})
 
             with get_openai_callback() as cb:
-                # for doc in [item["text"] for item in self.web_contents]:
                 for item in contents_totag:
                     url = item["url"]
                     doc = item["text"]
@@ -400,7 +392,6 @@ BULLET POINT SUMMARY:"""
                         for piece in chunked_docs:
                             p_tag = tagging_chain.invoke(piece)["text"]
                             if p_tag:
-                                # if "probability" in p_tag.keys():
                                 if p_tag["probability"] == "medium":
                                     if not p_tag_medium:
                                         p_tag_medium = p_tag
@@ -443,8 +434,6 @@ BULLET POINT SUMMARY:"""
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
-        else:
-            raise ValueError(f"LLM model {llm_model} is not supported.")
 
         embedding = AzureOpenAIEmbeddings(
             azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
@@ -505,8 +494,6 @@ BULLET POINT SUMMARY:"""
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
-        else:
-            raise ValueError(f"LLM model {llm_model} is not supported.")
 
         embedding = AzureOpenAIEmbeddings(
             azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
@@ -569,8 +556,9 @@ BULLET POINT SUMMARY:"""
 
 if __name__ == "__main__":
 
-    cdd = CDDwithLLM("红岭创投", lang="zh-CN")
+    load_dotenv()
 
+    cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
     # cdd = CDDwithLLM("Theranos", lang="en-US")
@@ -578,14 +566,14 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
 
-    cdd.web_search(num_results=5, search_engine="Bing")
+    cdd.web_search()
     cdd.contents_from_crawler()
 
-    # tags = cdd.fc_tagging()
-    # pprint.pprint(tags)
+    tags = cdd.fc_tagging()
+    pprint.pprint(tags)
 
-    # summary = cdd.summary()
-    # pprint.pprint(summary)
+    summary = cdd.summary()
+    pprint.pprint(summary)
 
     qa = cdd.qa(with_his_data=True)
     pprint.pprint(qa)

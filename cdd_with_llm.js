@@ -3,20 +3,6 @@
 const vi_deploy = false;
 const html_tags = /(<([^>]+)>)/ig;
 
-function txt2html(txt) {
-    const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br><br>");
-    const urlReg = /(https?:\/\/[^\s]+)/g;
-    return html.replace(urlReg, function (url) {
-        return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
-    })
-}
-
-function uuidv4() {
-    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
-}
-
 (function ($) {
     $.fn.serialize = function (options) {
         return $.param(this.serializeArray(options));
@@ -314,3 +300,17 @@ $(document).ready(function () {
         });
     });
 });
+
+function txt2html(txt) {
+    const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br><br>");
+    const urlReg = /(https?:\/\/[^\s]+)/g;
+    return html.replace(urlReg, function (url) {
+        return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
+    })
+}
+
+function uuidv4() {
+    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+}

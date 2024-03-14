@@ -1,14 +1,8 @@
 **/__pycache__
-/chroma
-/qa
-/db
-/store
 .idea
 *.py[cod]
 *.log
-*.pdf
 *.pem
-env.sh
+.env
 nohup.out
-test.py
-test.html
+test.*
