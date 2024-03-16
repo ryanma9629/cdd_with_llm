@@ -44,8 +44,8 @@ class CDDwithLLM:
     ) -> None:
         self.company_name = company_name
         self.lang = lang
-        self.search_results = []
-        self.web_contents = []
+        self.search_results = None
+        self.web_contents = None
 
         if lang == "zh-CN":
             self.default_search_suffix = "负面新闻"
@@ -101,7 +101,7 @@ class CDDwithLLM:
                             collection: str = "web_contents",
                             ) -> List[Dict]:
         logger.info("Loading existing web contents from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
         col = client.cdd_with_llm[collection]
 
         within_date = datetime.combine(
@@ -145,7 +145,7 @@ class CDDwithLLM:
                           collection: str = "web_contents",
                           ) -> None:
         logger.info("Saving web contents to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
         col = client.cdd_with_llm[collection]
 
         for item in web_contents:
@@ -220,7 +220,7 @@ class CDDwithLLM:
                         collection: str = "tags",
                         ) -> List[Dict]:
         logger.info("Loading existing tags from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
         col = client.cdd_with_llm[collection]
 
         within_date = datetime.combine(
@@ -259,7 +259,7 @@ class CDDwithLLM:
                       collection: str = "tags",
                       ) -> None:
         logger.info("Saving tags to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("ATLAS_URI"))
         col = client.cdd_with_llm[collection]
 
         for item in tags:
@@ -338,18 +338,19 @@ class CDDwithLLM:
                 urls, strategy, chunk_size, llm_model)
             if tags_loaded:
                 urls_loaded = [item["url"] for item in tags_loaded]
-                urls_totag = list(set(urls) - set(urls_loaded))
+                urls_totagging = list(set(urls) - set(urls_loaded))
             else:
-                urls_totag = urls
+                urls_totagging = urls
         else:
-            urls_totag = urls
+            urls_totagging = urls
 
-        logger.info(f"Generating tags for {len(urls_totag)} document(s)...")
+        logger.info(
+            f"Generating tags for {len(urls_totagging)} document(s)...")
         tags = []
-        if urls_totag:
+        if urls_totagging:
             contents_totag = []
             for item in self.web_contents:
-                if item["url"] in urls_totag:
+                if item["url"] in urls_totagging:
                     contents_totag.append(
                         {"url": item["url"], "text": item["text"]})
 
@@ -358,37 +359,43 @@ class CDDwithLLM:
                     url = item["url"]
                     doc = item["text"]
                     chunked_docs = splitter.split_text(doc)
-                    if strategy == "first":
-                        tag = tagging_chain.invoke(chunked_docs[0])["text"]
-                        if tag:
-                            tags.append({"url": url,
-                                        "type": tag["type"],
-                                         "probability": tag["probability"]})
-                    else:  # strategy == "all":
-                        p_tag_medium = {}
-                        p_tag_high = {}
-                        for piece in chunked_docs:
-                            p_tag = tagging_chain.invoke(piece)["text"]
-                            if p_tag:
-                                if p_tag["probability"] == "medium":
-                                    if not p_tag_medium:
-                                        p_tag_medium = p_tag
-                                elif p_tag["probability"] == "high":
-                                    p_tag_high = p_tag
-                                    break
-                        if p_tag_high:
-                            tags.append({"url": url,
-                                         "type": p_tag_high["type"],
-                                         "probability": p_tag_high["probability"]})
-                        elif p_tag_medium:
-                            tags.append({"url": url,
-                                         "type": p_tag_medium["type"],
-                                         "probability": p_tag_medium["probability"]})
-                        else:
-                            tags.append({"url": url,
-                                         "type": "Not suspected",
-                                         "probability": "low"})
+                    tag_unsuspect = {"url": url,
+                                     "type": "Not suspected",
+                                     "probability": "low"}
+                    try:
+                        if strategy == "first":
+                            tag = tagging_chain.invoke(chunked_docs[0])["text"]
+                            if tag:
+                                tags.append({"url": url,
+                                            "type": tag["type"],
+                                             "probability": tag["probability"]})
+                        else:  # strategy == "all":
+                            p_tag_medium = {}
+                            p_tag_high = {}
+                            for piece in chunked_docs:
+                                p_tag = tagging_chain.invoke(piece)["text"]
+                                if p_tag:
+                                    if p_tag["probability"] == "medium":
+                                        if not p_tag_medium:
+                                            p_tag_medium = p_tag
+                                    elif p_tag["probability"] == "high":
+                                        p_tag_high = p_tag
+                                        break
+                            if p_tag_high:
+                                tags.append({"url": url,
+                                            "type": p_tag_high["type"],
+                                             "probability": p_tag_high["probability"]})
+                            elif p_tag_medium:
+                                tags.append({"url": url,
+                                            "type": p_tag_medium["type"],
+                                             "probability": p_tag_medium["probability"]})
+                            else:
+                                tags.append(tag_unsuspect)
+                    except ValueError:
+                        tags.append(tag_unsuspect)
+
                 logger.info(f"{cb.total_tokens} tokens used")
+
             if tags_save and tags:
                 self.tags_to_mongo(tags, strategy, chunk_size, llm_model)
         if tags_load:
@@ -552,7 +559,7 @@ Helpful Answer:"""
                      "language": self.language})
                 logger.info(f"{cb.total_tokens} tokens used")
                 return answer
-        except ValueError:  # Occurs when retriever returns nothing
+        except ValueError:
             return "I can\'t make an answer"
 
 
