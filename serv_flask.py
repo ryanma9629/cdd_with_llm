@@ -12,7 +12,7 @@ from CDDwithLLM import CDDwithLLM
 VI_DEPLOY = False
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://127.0.0.1:5500", "https://viyahost"])
+CORS(app, supports_credentials=True, origins=["http://127.0.0.1:5500", "https://tenant01.viyahost.site"])
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.secret_key = "192b9bdd22ab9ed4dc15f71bbf5dc987d54727823bcbf"
@@ -118,8 +118,8 @@ def qa():
 
 if __name__ == "__main__":
     if VI_DEPLOY:
-        # app.run("0.0.0.0", 8000,
-        #         ssl_context=("tf02+1.pem", "tf02+1-key.pem"))
-        app.run("0.0.0.0", 8000)
+        app.run("0.0.0.0", 8000,
+                ssl_context=("tf02+1.pem", "tf02+1-key.pem"))
+        # app.run("0.0.0.0", 8000)
     else:
         app.run("localhost", 8000, debug=True)
