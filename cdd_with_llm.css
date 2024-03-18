@@ -1,14 +1,15 @@
 * {
     box-sizing: border-box;
+    font-family: Avenir Next for SAS, Helvetica Neue, Arial Unicode MS, helvetica, arial, sans-serif;
+    font-size: 12pt;
 }
 
-#div_ajax {
-    background-color: gold;
-}
+/* #div_ajax {
+    background-color: rgba(177, 184, 195, 0.1);
+} */
 
 #tbl_search_results {
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 10pt;
     border-collapse: collapse;
     table-layout: fixed;
     width: 100%;
@@ -16,7 +17,7 @@
 
 #tbl_search_results td,
 #tbl_search_results th {
-    border: 1px solid #ddd;
+    border: 1px solid rgba(177, 184, 195, 0.5);
     padding: 8px;
     /* overflow-wrap: break-word; */
 }
@@ -28,19 +29,19 @@
 }
 
 #tbl_search_results tr:nth-child(even) {
-    background-color: #f2f2f2;
+    background-color: rgba(177, 184, 195, 0.1);
 }
 
 #tbl_search_results tr:hover {
-    background-color: #ddd;
+    background-color: rgba(177, 184, 195, 0.3);
 }
 
 #tbl_search_results th {
     padding-top: 12px;
     padding-bottom: 12px;
     text-align: left;
-    color: white;
-    background-color: steelblue;
+    color: rgb(42, 48, 55);
+    background-color: rgba(177, 184, 195, 0.5);
 }
 
 .stick_top {
@@ -50,7 +51,7 @@
 
 .blink {
     animation: blinker 2s linear infinite;
-    color: red;
+    color: rgb(42, 48, 55);
     font-weight: bold;
 }
 
@@ -64,42 +65,46 @@ input[type=text],
 select,
 textarea {
     width: 100%;
-    padding: 12px;
+    padding: 6px 12px;
     border: 1px solid #ccc;
     border-radius: 4px;
     resize: vertical;
-    font-size: 12pt;
 }
 
 label {
-    padding: 12px 12px 12px 0;
+    padding: 6px 6px 6px 0;
     display: inline-block;
-    font-size: 12pt;
 }
 
 input[type=submit],
 button {
-    background-color: #04AA6D;
+    background-color: rgb(3, 121, 206);
     color: white;
-    padding: 12px 20px;
+    padding: 6px 12px;
     border: none;
-    border-radius: 4px;
+    /* border-radius: 4px; */
     /* width: 100%; */
-    font-size: 12pt;
     /* cursor: pointer; */
     float: left;
 }
 
-input[type=submit]:hover,
+button.cancel {
+    background-color: rgba(177, 184, 195, 0.5);
+    border-color: rgb(177, 184, 195);
+    color: rgb(42, 48, 55);
+
+}
+/* input[type=submit]:hover,
 button:hover {
     background-color: darkgreen;
-}
+} */
 
 button:disabled,
 button[disabled] {
     /* border: 1px solid #999999; */
-    background-color: #cccccc;
-    color: #666666;
+    /* background-color: #cccccc; */
+    /* color: #666666; */
+    background-color: rgb(3, 121, 206, 0.3);
 }
 
 .container {
