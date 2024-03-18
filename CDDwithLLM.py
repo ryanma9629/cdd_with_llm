@@ -575,7 +575,7 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
 
-    cdd.web_search()
+    cdd.web_search(num_results=50)
     cdd.contents_from_crawler()
 
     tags = cdd.fc_tagging()
