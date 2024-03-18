@@ -80,7 +80,7 @@ $(document).ready(function () {
     let api_host;
     if (vi_deploy) {
         $(".vi_deploy").remove();
-        api_host = "https://tf02:8000/";
+        api_host = "http://tf02:8000/";
     } else {
         api_host = "http://localhost:8000/";
     }
