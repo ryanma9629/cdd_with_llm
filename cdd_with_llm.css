@@ -11,7 +11,7 @@
 #tbl_search_results {
     font-family: Arial, Helvetica, sans-serif;
     border-collapse: collapse;
-    table-layout: fixed;
+    /* table-layout: fixed; */
     width: 100%;
 }
 
@@ -22,11 +22,11 @@
     /* overflow-wrap: break-word; */
 }
 
-#tbl_search_results td:nth-child(1),
+/* #tbl_search_results td:nth-child(1),
 #tbl_search_results th:nth-child(1) {
     width: 30%;
     overflow-wrap: break-word;
-}
+} */
 
 #tbl_search_results tr:nth-child(even) {
     background-color: rgba(177, 184, 195, 0.1);
@@ -78,8 +78,8 @@ label {
 
 input[type=submit],
 button {
-    background-color: rgb(3, 121, 206);
-    color: white;
+    background-color: rgba(3, 121, 206, 0.8);
+    color: rgb(255,255,255);
     padding: 6px 12px;
     border: none;
     /* border-radius: 4px; */
@@ -94,9 +94,10 @@ button.cancel {
     color: rgb(42, 48, 55);
 
 }
+
 /* input[type=submit]:hover,
 button:hover {
-    background-color: darkgreen;
+    background-color: rgba(3, 121, 206, 1);
 } */
 
 button:disabled,
@@ -104,19 +105,19 @@ button[disabled] {
     /* border: 1px solid #999999; */
     /* background-color: #cccccc; */
     /* color: #666666; */
-    background-color: rgb(3, 121, 206, 0.3);
+    background-color: rgba(3, 121, 206, 0.3);
 }
 
 .container {
     border-radius: 5px;
-    background-color: #f2f2f2;
+    background-color: rgb(242, 242, 242);
     padding: 20px;
     margin-top: 6px;
 }
 
 .container_nomargin {
     border-radius: 5px;
-    background-color: #f2f2f2;
+    background-color: rgb(242, 242, 242);
     padding: 20px;
     /* margin-top: 6px; */
 }
@@ -183,10 +184,10 @@ button[disabled] {
 /* Modal Content/Box */
 .modal-content {
     border-radius: 5px;
-    background-color: #fefefe;
+    background-color: rgb(242, 242, 242);
     margin: 5% auto 15% auto;
     /* 5% from the top, 15% from the bottom and centered */
-    border: 1px solid #888;
+    border: 1px solid rgb(177, 184, 195);
     width: 40%;
     /* Could be more or less, depending on screen size */
 }

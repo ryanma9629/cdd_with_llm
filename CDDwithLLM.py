@@ -101,7 +101,7 @@ class CDDwithLLM:
                             collection: str = "web_contents",
                             ) -> List[Dict]:
         logger.info("Loading existing web contents from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
 
         within_date = datetime.combine(
@@ -145,7 +145,7 @@ class CDDwithLLM:
                           collection: str = "web_contents",
                           ) -> None:
         logger.info("Saving web contents to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
 
         for item in web_contents:
@@ -201,7 +201,8 @@ class CDDwithLLM:
             )
             apify_dataset = (apify_client.dataset(
                 actor_call["defaultDatasetId"]).list_items().items)
-            web_contents = [{"url": item['url'], "text": item['text']} for item in apify_dataset if item["crawl"]
+            web_contents = [{"url": item['url'], "text": item['text']}
+                            for item in apify_dataset if item["crawl"]
                             ["httpStatusCode"] == 200 and len(item["text"]) >= min_content_length]
             if contents_save:
                 self.contents_to_mongo(web_contents)
@@ -220,7 +221,7 @@ class CDDwithLLM:
                         collection: str = "tags",
                         ) -> List[Dict]:
         logger.info("Loading existing tags from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
 
         within_date = datetime.combine(
@@ -259,7 +260,7 @@ class CDDwithLLM:
                       collection: str = "tags",
                       ) -> None:
         logger.info("Saving tags to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
         col = client.cdd_with_llm[collection]
 
         for item in tags:
@@ -318,12 +319,15 @@ class CDDwithLLM:
                         "Money Laundering",
                         "Insider Trading",
                         "Manipulation of Securities Markets"],
-                    "description": f"Describes the specific type of financial crime {self.company_name} is suspected of committing, or returns the type 'Not suspected' if not suspected",
+                    "description": f"Describes the specific type of financial crime {self.company_name} \
+                    is suspected of committing, or returns the type 'Not suspected' if not suspected",
                 },
                 "probability": {
                     "type": "string",
                     "enum": ["low", "medium", "high"],
-                    "description": f"describes the probability that the company {self.company_name} is suspected of financial crimes, This refers specifically to financial crimes and not to other types of crime",
+                    "description": f"describes the probability that the company {self.company_name} \
+                    is suspected of financial crimes, This refers specifically to financial crimes \
+                    and not to other types of crime",
                 },
             },
             "required": ["types of suspected financial crimes", "probability"],
@@ -442,13 +446,15 @@ class CDDwithLLM:
         else:
             repr_docs = chunked_docs
 
-        summary_map = f"""Write a concise summary about {self.company_name} using the following text delimited by triple backquotes:""" + """
+        summary_map = f"""Write a concise summary about {self.company_name} using the following text \
+delimited by triple backquotes:""" + """
 
 ```{text}```
 
 CONCISE SUMMARY:"""
-        summary_combine = f"""Write a concise summary about {self.company_name} using the following text delimited by triple backquotes.
-Return your response in bullet points which covers the key points of the text. Make your respopnse in {self.language} with no more than {max_words} words.""" + """
+        summary_combine = f"""Write a concise summary about {self.company_name} using the following \
+text delimited by triple backquotes. Return your response in bullet points which covers the key \
+points of the text. Make your respopnse in {self.language} with no more than {max_words} words.""" + """
 
 ```{text}```
 
@@ -494,19 +500,18 @@ BULLET POINT SUMMARY:"""
             azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
         logger.info(f"Documents QA with LLM model {llm_model}...")
-        qa_template = f"""Use the following pieces of context to answer the question at the end.
-If you don't know the answer, just say that you don't know, don't try to make up an answer.
-Keep the answer as concise as possible. Make your response in {self.language}.""" + """
+        qa_template = f"""Use the following pieces of context to answer the question at the end. \
+If you don't know the answer, just say that you don't know, don't try to make up an answer. Keep \
+the answer as concise as possible. Make your response in {self.language}.""" + """
 
 {context}
 
 Question: {question}
 
 Helpful Answer:"""
-        qa_default_query = f"""What is the negative news about {self.company_name}? 
-        Summarize no more than 3 major ones, list each on a separate line, 
-        and give the URL where the information came from. 
-        Make your response in {self.language}"""
+        qa_default_query = f"""What is the negative news about {self.company_name}? Summarize \
+no more than 3 major ones, list each on a separate line, and give the URL where the information \
+came from. Make your response in {self.language}"""
 
         query = query or qa_default_query
         langchain_docs = []
@@ -575,7 +580,7 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
 
-    cdd.web_search(num_results=50)
+    cdd.web_search()
     cdd.contents_from_crawler()
 
     tags = cdd.fc_tagging()

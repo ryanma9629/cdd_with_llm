@@ -84,13 +84,29 @@ $(document).ready(function () {
     } else {
         api_host = "http://localhost:8000/";
     }
-    // const hostReg = new RegExp(/https?:\/\/[^/]+/);
 
-    // const userid = localStorage.getItem("userid");
-    // if (userid == null) {
-    //     userid = uuidv4();
-    //     localStorage.setItem("userid", userid);
-    // }
+
+    function adj_tbl() {
+        div_search_results.find("table tbody tr td:nth-child(1)").each(function () {
+            const long_url = $(this).text();
+            const short_url = (new URL(long_url)).hostname;
+            $(this).html("<a href='" + long_url + "' target='_blank'>" + short_url + "</a>");
+
+        });
+        div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
+            const text_with_tags = $(this).text();
+            const text_wo_tags = text_with_tags.replace(html_tags, "");
+            $(this).text(text_wo_tags);
+        });
+        div_search_results.find("table tbody tr td:nth-child(3)").each(function () {
+            const cell_text = $(this).text();
+            if (cell_text == "True") {
+                $(this).html("&#10004;");
+            } else {
+                $(this).html("&#10006;");
+            }
+        });
+    }
 
     frm_web_search.on("submit", function (e) {
         e.preventDefault();
@@ -153,12 +169,7 @@ $(document).ready(function () {
             // console.log(html);
             div_search_results.append(html);
 
-            // remove html tabs in titles
-            div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
-                const text_with_tags = $(this).text();
-                const text_wo_tags = text_with_tags.replace(html_tags, "");
-                $(this).text(text_wo_tags);
-            });
+            adj_tbl();
 
             div_search_results.show();
             div_operation.show();
@@ -191,11 +202,8 @@ $(document).ready(function () {
                 div_search_results.empty();
             }
             div_search_results.append(html);
-            div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
-                const text_with_tags = $(this).text();
-                const text_wo_tags = text_with_tags.replace(html_tags, "");
-                $(this).text(text_wo_tags);
-            });
+
+            adj_tbl();
 
             div_operation.show();
             btn_tagging.prop("disabled", false);
@@ -234,12 +242,8 @@ $(document).ready(function () {
                 div_search_results.empty();
             }
             div_search_results.append(html);
-            div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
-                const text_with_tags = $(this).text();
-                const text_wo_tags = text_with_tags.replace(html_tags, "");
-                $(this).text(text_wo_tags);
-            });
-
+            
+            adj_tbl();
         });
     });
 

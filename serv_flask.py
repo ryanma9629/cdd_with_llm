@@ -1,23 +1,25 @@
 import os
-
+from dotenv import load_dotenv
 import jsonpickle
 import pandas as pd
 import pymongo
 from flask import Flask, request, session
 from flask_cors import CORS
 from flask_session import Session
-
 from CDDwithLLM import CDDwithLLM
+
+load_dotenv()
 
 VI_DEPLOY = False
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=["http://127.0.0.1:5500", "https://tenant01.viyahost.site"])
+CORS(app, supports_credentials=True, origins=[
+     "http://127.0.0.1:5500", "https://tenant01.viyahost.site"])
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.secret_key = "192b9bdd22ab9ed4dc15f71bbf5dc987d54727823bcbf"
 app.config["SESSION_TYPE"] = "mongodb"
-app.config["SESSION_MONGODB"] = pymongo.MongoClient(os.getenv("MONGO_URI"))
+app.config["SESSION_MONGODB"] = pymongo.MongoClient(os.getenv("MONGODB_URI"))
 
 server_session = Session(app)
 
@@ -52,7 +54,7 @@ def contents_from_crawler():
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
     df_merged = pd.merge(df_search_results, df_contents, how="left", on="url")
-    df_merged["Content"] = df_merged["text"].notnull()
+    df_merged["content"] = df_merged["text"].notnull()
     df_merged.drop("text", axis=1, inplace=True)
     df_merged.sort_values(by="url", inplace=True)
 
@@ -75,7 +77,7 @@ def fc_tagging():
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
     df_merged = pd.merge(df_search_results, df_contents, how="left", on="url")
-    df_merged["Content"] = df_merged["text"].notnull()
+    df_merged["content"] = df_merged["text"].notnull()
     df_merged.drop("text", axis=1, inplace=True)
     df_tags = pd.DataFrame(tags)
     df_merged2 = pd.merge(df_merged, df_tags, how="left", on="url")
