@@ -28,7 +28,6 @@ server_session = Session(app)
 def web_search():
     company_name = request.args.get("company_name")
     lang = request.args.get("lang")
-
     search_engine = request.args.get("search_engine")
     num_results = request.args.get("num_results")
 
