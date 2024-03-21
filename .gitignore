@@ -3,6 +3,6 @@
 *.py[cod]
 *.log
 *.pem
+test.*
 .env
 nohup.out
-test.*

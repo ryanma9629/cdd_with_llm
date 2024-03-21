@@ -4,27 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <title>CDD with LLM</title>
-    <link rel="stylesheet" href="cdd_with_llm.css">
+    <!-- <link rel="stylesheet" href="cdd_with_llm.css"> -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="jquery-3.7.1.min.js"></script>
     <script src="cdd_with_llm.js"></script>
 </head>
 
 <body>
-    <div class="row">
-        <div class="col-25">
-            <div class="container">
+    <div class="row m-1">
+        <div class="col-lg-3">
+            <div class="container border bg-light m-1 rounded-3">
                 <form id="frm_web_search">
-                    <div class="row vi_deploy">
-                        <label for="company_name">Company to check:</label>
+                    <div class="mx-1 my-3 vi_deploy">
+                        <label for="company_name" class="form-label">Company to check:</label>
+                        <input id="company_name" name="company_name" type="text" class="form-control" required
+                            autocomplete="on">
                     </div>
-                    <div class="row vi_deploy">
-                        <input id="company_name" name="company_name" type="text" required autocomplete="on">
-                    </div>
-                    <div class="row">
-                        <label for="lang">Choose a language/region:</label>
-                    </div>
-                    <div class="row">
-                        <select id="lang" name="lang">
+                    <div class="mx-1 my-3">
+                        <label for="lang" class="form-label">Choose a language/region:</label>
+                        <select id="lang" name="lang" class="form-select">
                             <option value="zh-CN">Simplified Chinese</option>
                             <option value="zh-HK">Traditional Chinese(HK)</option>
                             <option value="zh-TW">Traditional Chinese(TW)</option>
@@ -32,303 +31,346 @@
                             <option value="ja-JP">Japanese</option>
                         </select>
                     </div>
-                    <div class="row">
-                        <label for="search_engine">Choose a search engine:</label>
-                    </div>
-                    <div class="row">
-                        <select id="search_engine" name="search_engine">
+                    <div class="mx-1 my-3">
+                        <label for="search_engine" class="form-label">Choose a search engine:</label>
+                        <select id="search_engine" name="search_engine" class="form-select">
                             <option value="Bing">Bing</option>
                             <option value="Google">Google</option>
                         </select>
                     </div>
-                    <div class="row">
-                        <label for="num_results">Maximum number of news to fetch:</label>
-                    </div>
-                    <div class="row">
-                        <select id="num_results" name="num_results">
+                    <div class="mx-1 my-3">
+                        <label for="num_results" class="form-label">Maximum number of news to fetch:</label>
+                        <select id="num_results" name="num_results" class="form-select">
                             <option value="5">5</option>
                             <option value="10">10</option>
                             <option value="20">20</option>
                             <option value="50">50</option>
                         </select>
                     </div>
-                    <div class="row">
-                        <br><br>
-                    </div>
-                    <div class="row">
-                        <input type="submit" value="Click to search">
+                    <div class="mx-1 my-4">
+                        <input type="submit" class="btn btn-primary" value="Click to search">
                     </div>
             </div>
             </form>
         </div>
 
-        <div class="col-75">
-            <div id="div_ajax" class="stick_top hide">
-                <p id="p_ajax" class="blink"></p>
+        <div class="col-lg-9">
+            <div id="div_ajax" class="container p-1 m-1 sticky-top alert alert-info" style="display: none;">
+                <p id="p_ajax" class="m-1"></p>
             </div>
 
-            <div id="div_search_results" class="hide">
-                <table id="tbl_search_results">
-                </table>
+            <div id="div_search_results" class="container p-1 m-1 border rounded-3" style="display: none;">
+                <!-- table placeholder -->
             </div>
 
-            <div id="div_operation" class="container hide">
-                <div class="row">
-                    <div class="col-25">
-                        <button id="btn_crawler"
-                            onclick="document.getElementById('div_crawler_frm').style.display='block'">Get Full
-                            Text</button>
-                    </div>
-                    <div class="col-25">
-                        <button id="btn_tagging"
-                            onclick="document.getElementById('div_tagging_frm').style.display='block'">FC
-                            Tagging</button>
-                    </div>
-                    <div class="col-25">
-                        <button id="btn_summary"
-                            onclick="document.getElementById('div_summary_frm').style.display='block'">Summary</button>
-                    </div>
-                    <div class="col-25">
-                        <button id="btn_qa"
-                            onclick="document.getElementById('div_qa_frm').style.display='block'">QA</button>
+            <div id="div_operation" class="container p-1 mt-3 mx-1" style="display: none;">
+                <div class="btn-group" role="group">
+                    <button type="button" id="btn_crawler" class="btn btn-primary disabled me-2" data-bs-toggle="modal"
+                        data-bs-target="#crawler_modal">Get Content</button>
+                    <button type="button" id="btn_tagging" class="btn btn-primary disabled me-2" data-bs-toggle="modal"
+                        data-bs-target="#tagging_modal">FC Tagging</button>
+                    <button type="button" id="btn_summary" class="btn btn-primary disabled me-2" data-bs-toggle="modal"
+                        data-bs-target="#summary_modal">Summary</button>
+                    <button type="button" id="btn_qa" class="btn btn-primary disabled me-2" data-bs-toggle="modal"
+                        data-bs-target="#qa_modal">Question Answering</button>
+                </div>
+            </div>
+
+            <div class="modal fade" id="crawler_modal">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Get Web Content</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="container">
+                                <form id="frm_crawler">
+                                    <div class="mx-1 my-3">
+                                        <label for="min_content_length" class="form-label">Minimum number of characters
+                                            required for each article:</label>
+                                        <select id="min_content_length" name="min_content_length" class="form-select">
+                                            <option value="50">50</option>
+                                            <option value="100" selected>100</option>
+                                            <option value="200">200</option>
+                                        </select>
+                                    </div>
+                                    <div class="mx-1 my-3">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" id="contents_save" name="contents_save"
+                                                class="form-check-input" checked>
+                                            <label for="contents_save" class="form-check-label">Persistent storage for
+                                                these
+                                                contents</label>
+                                        </div>
+                                    </div>
+                                    <div class="mx-1 my-3">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" id="contents_load" name="contents_load"
+                                                class="form-check-input" checked>
+                                            <label for="contents_load" class="form-check-label">Load web contents from
+                                                persistent
+                                                storage if possible</label>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <div role="group" class="btn-group">
+                                <button type="button" id="btn_crawler_submit" class="btn btn-primary me-2"
+                                    data-bs-dismiss="modal">Submit</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div id="div_crawler_frm" class="modal">
-                <form id="frm_crawler" class="modal-content animate">
-                    <div class="container_nomargin">
-                        <div class="row">
-                            <label for="min_content_length">Minimum number of characters required for each
-                                article:</label>
+
+            <div class="modal fade" id="tagging_modal">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">FC Tagging</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="row">
-                            <select id="min_content_length" name="min_content_length">
-                                <option value="50">50</option>
-                                <option value="100" selected>100</option>
-                                <option value="200">200</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <input type="checkbox" id="contents_save" name="contents_save" checked>
-                            <label for="contents_save">Persistent storage for these contents</label>
-                        </div>
-                        <div class="row">
-                            <input type="checkbox" id="contents_load" name="contents_load" checked>
-                            <label for="contents_load">Load web contents from persistent storage if possible</label>
-                        </div>
-                        <div class="row">
-                            <br><br>
-                        </div>
-                        <div class="row">
-                            <div class="col-50">
-                                <button type="submit">Submit</button>
+                        <div class="modal-body">
+                            <div class="container">
+                                <form id="frm_tagging">
+                                    <div class="mx-1 my-3">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" id="tags_save" name="tags_save"
+                                                class="form-check-input" checked>
+                                            <label for="tags_save" class="form-check-label">Persistent storage for these
+                                                tags</label>
+                                        </div>
+                                    </div>
+                                    <div class="mx-1 my-3">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" id="tags_load" name="tags_load"
+                                                class="form-check-input" checked>
+                                            <label for="tags_load" class="form-check-label">Load tags from persistent
+                                                storage if possible</label>
+                                        </div>
+                                    </div>
+                                    <div class="mx-1 my-3">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#tagging_adv_option">Advanced
+                                            Options</button>
+                                        <div id="tagging_adv_option" class="collapse">
+                                            <div class="mx-1 my-3">
+                                                <label for="tagging_strategy" class="form-label">Tagging
+                                                    strategy:</label>
+                                                <select id="tagging_strategy" name="tagging_strategy"
+                                                    class="form-select">
+                                                    <option value="first">First chunck (less LLM calls, less accuracy)
+                                                    </option>
+                                                    <option value="all" selected>All chunks (more LLM calls, more
+                                                        accuracy)
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="tagging_chunk_size" class="form-label">Chunk size:</label>
+                                                <select id="tagging_chunk_size" name="tagging_chunk_size"
+                                                    class="form-select">
+                                                    <option value="1000">1000 tokens</option>
+                                                    <option value="2000" selected>2000 tokens</option>
+                                                    <option value="3000">3000 tokens</option>
+                                                    <option value="4000">4000 tokens</option>
+                                                </select>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="tagging_llm_model" class="form-label">Large Language
+                                                    Model:</label>
+                                                <select id="tagging_llm_model" name="tagging_llm_model"
+                                                    class="form-select">
+                                                    <option value="GPT35">OpenAI GPT-3.5 (not recommended)</option>
+                                                    <option value="GPT4" selected>OpenAI GPT-4</option>
+                                                    <option value="GPT4-32k">OpenAI GPT-4 32k</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="col-50">
-                                <button type="button" class="cancel"
-                                    onclick="document.getElementById('div_crawler_frm').style.display='none'">Cancel</button>
+                        </div>
+                        <div class="modal-footer">
+                            <div role="group" class="btn-group">
+                                <button type="button" id="btn_tagging_submit" class="btn btn-primary me-2"
+                                    data-bs-dismiss="modal">Submit</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             </div>
                         </div>
                     </div>
-                </form>
+                </div>
             </div>
 
-            <div id="div_tagging_frm" class="modal">
-                <form id="frm_tagging" class="modal-content animate">
-                    <div class="container_nomargin">
-                        <div class="row">
-                            <label for="tagging_strategy">Tagging strategy:</label>
+            <div class="modal fade" id="summary_modal">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Summary</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="row">
-                            <select id="tagging_strategy" name="tagging_strategy">
-                                <option value="first">First chunck (less LLM calls, less accuracy)</option>
-                                <option value="all" selected>All chunks (more LLM calls, more accuracy)</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <label for="tagging_chunk_size">Chunk size:</label>
-                        </div>
-                        <div class="row">
-                            <select id="tagging_chunk_size" name="tagging_chunk_size">
-                                <option value="1000">1000 tokens</option>
-                                <option value="2000" selected>2000 tokens</option>
-                                <option value="3000">3000 tokens</option>
-                                <option value="4000">4000 tokens</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <label for="tagging_llm_model">Large Language Model:</label>
-                        </div>
-                        <div class="row">
-                            <select id="tagging_llm_model" name="tagging_llm_model">
-                                <option value="GPT35">OpenAI GPT-3.5 (not recommended)</option>
-                                <option value="GPT4" selected>OpenAI GPT-4</option>
-                                <option value="GPT4-32k">OpenAI GPT-4 32k</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <input type="checkbox" id="tags_save" name="tags_save" checked>
-                            <label for="tags_save">Persistent storage for these tags</label>
-                        </div>
-                        <div class="row">
-                            <input type="checkbox" id="tags_load" name="tags_load" checked>
-                            <label for="tags_load">Load tags from persistent storage if possible</label>
-                        </div>
-                        <div class="row">
-                            <br><br>
-                        </div>
-                        <div class="row">
-                            <div class="col-50">
-                                <button type="submit">Submit</button>
+                        <div class="modal-body">
+                            <div class="container">
+                                <form id="frm_summary">
+                                    <div class="mx-1 my-3">
+                                        <label for="summary_max_words" class="form-label">Maximum number of
+                                            words:</label>
+                                        <select id="summary_max_words" name="summary_max_words" class="form-select">
+                                            <option value="100">100</option>
+                                            <option value="200">200</option>
+                                            <option value="200" selected>300</option>
+                                            <option value="200">500</option>
+                                        </select>
+                                    </div>
+                                    <div class="mx-1 my-3">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#summary_adv_option">Advanced
+                                            Options</button>
+                                        <div id="summary_adv_option" class="collapse">
+                                            <div class="form-check form-switch mx-1 my-3">
+                                                <input type="checkbox" id="summary_clus_docs" name="summary_clus_docs"
+                                                    class="form-check-input" checked
+                                                    onchange="document.getElementById('summary_num_clus').disabled=!this.checked;">
+                                                <label for="summary_clus_docs" class="form-check-label">
+                                                    Cluster documents before summarization (with less LLM calls)
+                                                </label>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="summary_num_clus" class="form-label">Number of
+                                                    clusters:</label>
+                                                <select id="summary_num_clus" name="summary_num_clus"
+                                                    class="form-select">
+                                                    <option value="2" selected>2</option>
+                                                    <option value="5">5</option>
+                                                    <option value="10">10</option>
+                                                </select>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="summary_chunk_size" class="form-label">Chunk size:</label>
+                                                <select id="summary_chunk_size" name="summary_chunk_size"
+                                                    class="form-select">
+                                                    <option value="1000">1000 tokens</option>
+                                                    <option value="2000" selected>2000 tokens</option>
+                                                    <option value="3000">3000 tokens</option>
+                                                    <option value="4000">4000 tokens</option>
+                                                </select>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="summary_llm_model" class="form-label">Large Language
+                                                    Model:</label>
+                                                <select id="summary_llm_model" name="summary_llm_model"
+                                                    class="form-select">
+                                                    <option value="GPT35">OpenAI GPT-3.5</option>
+                                                    <option value="GPT4" selected>OpenAI GPT-4</option>
+                                                    <option value="GPT4-32k">OpenAI GPT-4 32k</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="col-50">
-                                <button type="button" class="cancel"
-                                    onclick="document.getElementById('div_tagging_frm').style.display='none'">Cancel</button>
+                        </div>
+                        <div class="modal-footer">
+                            <div role="group" class="btn-group">
+                                <button type="button" id="btn_summary_submit" class="btn btn-primary me-2"
+                                    data-bs-dismiss="modal">Submit</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             </div>
                         </div>
                     </div>
-                </form>
+                </div>
             </div>
 
-            <div id="div_summary_frm" class="modal">
-                <form id="frm_summary" class="modal-content animate">
-                    <div class="container_nomargin">
-                        <div class="row">
-                            <label for="summary_max_words">Maximum number of words:</label>
+            <div class="modal fade" id="qa_modal">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h4 class="modal-title">Question Answering</h4>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="row">
-                            <select id="summary_max_words" name="summary_max_words">
-                                <option value="100">100</option>
-                                <option value="200">200</option>
-                                <option value="200" selected>300</option>
-                                <option value="200">500</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <input type="checkbox" id="summary_clus_docs" name="summary_clus_docs" checked
-                                onchange="document.getElementById('summary_num_clus').disabled=!this.checked;">
-                            <label for="summary_clus_docs">
-                                Cluster documents before summarization (with less LLM calls)
-                            </label>
-                        </div>
-                        <div class="row">
-                            <label for="summary_num_clus">Number of clusters:</label>
-                            <select id="summary_num_clus" name="summary_num_clus">
-                                <option value="2" selected>2</option>
-                                <option value="5">5</option>
-                                <option value="10">10</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <label for="summary_chunk_size">Chunk size:</label>
-                        </div>
-                        <div class="row">
-                            <select id="summary_chunk_size" name="summary_chunk_size">
-                                <option value="1000">1000 tokens</option>
-                                <option value="2000" selected>2000 tokens</option>
-                                <option value="3000">3000 tokens</option>
-                                <option value="4000">4000 tokens</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <label for="summary_llm_model">Large Language Model:</label>
-                        </div>
-                        <div class="row">
-                            <select id="summary_llm_model" name="summary_llm_model">
-                                <option value="GPT35">OpenAI GPT-3.5</option>
-                                <option value="GPT4" selected>OpenAI GPT-4</option>
-                                <option value="GPT4-32k">OpenAI GPT-4 32k</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <br><br>
-                        </div>
-                        <div class="row">
-                            <div class="col-50">
-                                <button type="submit">Submit</button>
+                        <div class="modal-body">
+                            <div class="container">
+                                <form id="frm_qa">
+                                    <div class="mx-1 my-3">
+                                        <label for="qa_query" class="form-label">Your question:</label>
+                                        <textarea id="qa_query" name="qa_query" class="form-control"
+                                            rows="5"></textarea>
+                                    </div>
+                                    <div class="mx-1 my-3">
+                                        <button class="btn btn-outline-secondary btn-sm" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#qa_adv_option">Advanced
+                                            Options</button>
+                                        <div id="qa_adv_option" class="collapse">
+                                            <div class="form-check form-switch mx-1 my-3">
+                                                <input type="checkbox" id="with_his_data" name="with_his_data"
+                                                    class="form-check-input"
+                                                    onchange="document.getElementById('data_within_days').disabled=!this.checked;">
+                                                <label for="with_his_data" class="form-check-label">
+                                                    Also load historical documents to answer
+                                                </label>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="data_within_days" class="form-label">Historical documents no
+                                                    older
+                                                    than:</label>
+                                                <select id="data_within_days" name="data_within_days"
+                                                    class="form-select" disabled>
+                                                    <option value="7">a week</option>
+                                                    <option value="30">a month</option>
+                                                    <option value="90" selected>three months</option>
+                                                    <option value="180">six months</option>
+                                                    <option value="365">a year</option>
+                                                </select>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="qa_chunk_size" class="form-label">Chunk size:</label>
+                                                <select id="qa_chunk_size" name="qa_chunk_size" class="form-select">
+                                                    <option value="1000">1000 tokens</option>
+                                                    <option value="2000" selected>2000 tokens</option>
+                                                    <option value="3000">3000 tokens</option>
+                                                    <option value="4000">4000 tokens</option>
+                                                </select>
+                                            </div>
+                                            <div class="mx-1 my-3">
+                                                <label for="qa_llm_model" class="form-label">Large Language
+                                                    Model:</label>
+                                                <select id="qa_llm_model" name="qa_llm_model" class="form-select">
+                                                    <option value="GPT35">OpenAI GPT-3.5</option>
+                                                    <option value="GPT4" selected>OpenAI GPT-4</option>
+                                                    <option value="GPT4-32k">OpenAI GPT-4 32k</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
                             </div>
-                            <div class="col-50">
-                                <button type="button" class="cancel"
-                                    onclick="document.getElementById('div_summary_frm').style.display='none'">Cancel</button>
+                        </div>
+                        <div class="modal-footer">
+                            <div role="group" class="btn-group">
+                                <button type="button" id="btn_qa_submit" class="btn btn-primary me-2"
+                                    data-bs-dismiss="modal">Submit</button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             </div>
                         </div>
                     </div>
-                </form>
+                </div>
             </div>
 
-            <div id="div_qa_frm" class="modal">
-                <form id="frm_qa" class="modal-content animate">
-                    <div class="container_nomargin">
-                        <div class="row">
-                            <label for="qa_query">Your question:</label>
-                        </div>
-                        <div class="row">
-                            <textarea id="qa_query" name="qa_query" style="height: 100px;"></textarea>
-                        </div>
-                        <div class="row">
-                            <input type="checkbox" id="with_his_data" name="with_his_data"
-                                onchange="document.getElementById('data_within_days').disabled=!this.checked;">
-                            <label for="with_his_data">
-                                Also load historical documents to answer this
-                            </label>
-                        </div>
-                        <div class="row">
-                            <label for="data_within_days">Historical documents no older than:</label>
-                            <select id="data_within_days" name="data_within_days" disabled>
-                                <option value="7">a week</option>
-                                <option value="30">a month</option>
-                                <option value="90" selected>three months</option>
-                                <option value="180">six months</option>
-                                <option value="365">a year</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <label for="qa_chunk_size">Chunk size:</label>
-                        </div>
-                        <div class="row">
-                            <select id="qa_chunk_size" name="qa_chunk_size">
-                                <option value="1000">1000 tokens</option>
-                                <option value="2000" selected>2000 tokens</option>
-                                <option value="3000">3000 tokens</option>
-                                <option value="4000">4000 tokens</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <label for="qa_llm_model">Large Language Model:</label>
-                        </div>
-                        <div class="row">
-                            <select id="qa_llm_model" name="qa_llm_model">
-                                <option value="GPT35">OpenAI GPT-3.5</option>
-                                <option value="GPT4" selected>OpenAI GPT-4</option>
-                                <option value="GPT4-32k">OpenAI GPT-4 32k</option>
-                            </select>
-                        </div>
-                        <div class="row">
-                            <br><br>
-                        </div>
-                        <div class="row">
-                            <div class="col-50">
-                                <button type="submit">Submit</button>
-                            </div>
-                            <div class="col-50">
-                                <button type="button" class="cancel"
-                                    onclick="document.getElementById('div_qa_frm').style.display='none'">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <div id="div_summary" class="container hide">
-                <h3>Summary</h3>
+            <div id="div_summary" class="container p-1 mx-1 mt-3 border bg-light rounded-3" style="display: none;">
+                <p class="h4">Summary</p>
                 <hr>
                 <p id="p_summary"></p>
             </div>
 
-            <div id="div_answer" class="container hide">
-                <h3>Question</h3>
+            <div id="div_answer" class="container p-1 mx-1 mt-3 border bg-light rounded-3" style="display: none;">
+                <p class="h4">Question</p>
                 <hr>
                 <p id="p_question"></p>
-                <h3>Answer</h3>
+                <p class="h4">Answer</p>
                 <hr>
                 <p id="p_answer"></p>
             </div>

@@ -37,7 +37,7 @@ def web_search():
     session["cdd"] = jsonpickle.encode(cdd)
 
     df_search = pd.DataFrame(cdd.search_results).sort_values(by="url")
-    return df_search.to_html(table_id="tbl_search_results", render_links=True, index=False)
+    return df_search.to_html(table_id="tbl_search_results", render_links=True, index=False, justify="left")
 
 
 @app.get("/cdd_with_llm/contents_from_crawler")
@@ -57,7 +57,7 @@ def contents_from_crawler():
     df_merged.drop("text", axis=1, inplace=True)
     df_merged.sort_values(by="url", inplace=True)
 
-    return df_merged.to_html(table_id="tbl_search_results", render_links=True, index=False)
+    return df_merged.to_html(table_id="tbl_search_results", render_links=True, index=False, justify="left")
 
 
 @app.get("/cdd_with_llm/fc_tagging")
@@ -82,7 +82,7 @@ def fc_tagging():
     df_merged2 = pd.merge(df_merged, df_tags, how="left", on="url")
     df_merged2.sort_values(by="url", inplace=True)
 
-    return df_merged2.to_html(table_id="tbl_search_results", render_links=True, index=False)
+    return df_merged2.to_html(table_id="tbl_search_results", render_links=True, index=False, justify="left")
 
 
 @app.get("/cdd_with_llm/summary")

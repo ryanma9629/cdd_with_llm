@@ -48,14 +48,18 @@ $(document).ready(function () {
     const div_ajax = $("#div_ajax");
     const p_ajax = $("#p_ajax");
 
-    const frm_web_search = $("#frm_web_search");
     const div_search_results = $("#div_search_results");
+    const frm_web_search = $("#frm_web_search");
 
     const div_operation = $("#div_operation");
     const btn_crawler = $("#btn_crawler");
     const btn_tagging = $("#btn_tagging");
     const btn_summary = $("#btn_summary");
     const btn_qa = $("#btn_qa");
+    const btn_crawler_submit = $("#btn_crawler_submit");
+    const btn_tagging_submit = $("#btn_tagging_submit");
+    const btn_summary_submit = $("#btn_summary_submit");
+    const btn_qa_submit = $("#btn_qa_submit");
 
     const div_crawler_frm = $("#div_crawler_frm");
     const frm_cralwer = $("#frm_crawler");
@@ -125,9 +129,12 @@ $(document).ready(function () {
         }
 
         div_operation.hide();
-        btn_tagging.prop("disabled", true)
-        btn_summary.prop("disabled", true)
-        btn_qa.prop("disabled", true)
+        // btn_tagging.prop("disabled", true);
+        // btn_summary.prop("disabled", true);
+        // btn_qa.prop("disabled", true);
+        // btn_tagging.addClass("disabled");
+        // btn_summary.addClass("disabled");
+        // btn_qa.addClass("disabled");
 
         div_summary.hide();
         p_summary.empty();
@@ -159,38 +166,43 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("Making web search... may take a few seconds")
+                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Making web search... may take a few seconds")
             },
             complete: function () {
                 p_ajax.empty();
                 div_ajax.hide();
             },
         }).done(function (html) {
-            // console.log(html);
+            console.log(html);
             div_search_results.append(html);
+            const tbl_search_results = $("#tbl_search_results");
+            tbl_search_results.removeClass();
+            tbl_search_results.removeAttr("border");
+            tbl_search_results.addClass("table table-striped table-hover");
 
             adj_tbl();
 
             div_search_results.show();
             div_operation.show();
-            btn_crawler.prop("disabled", false);
+            // btn_crawler.prop("disabled", false);
+            btn_crawler.removeClass("disabled");
         });
     });
 
-    frm_cralwer.on("submit", function (e) {
+    btn_crawler_submit.on("click", function (e) {
         e.preventDefault();
         div_crawler_frm.hide();
 
         $.ajax({
             url: api_host + "cdd_with_llm/contents_from_crawler",
-            data: $(this).serializeArray({ checkboxesAsBools: true }),
+            data: frm_cralwer.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.text("Grabbing web conetents from each url... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Grabbing web conetents from each url... may take a few minutes")
             },
             complete: function () {
                 p_ajax.empty();
@@ -202,18 +214,22 @@ $(document).ready(function () {
                 div_search_results.empty();
             }
             div_search_results.append(html);
+            const tbl_search_results = $("#tbl_search_results");
+            tbl_search_results.removeClass();
+            tbl_search_results.removeAttr("border");
+            tbl_search_results.addClass("table table-striped table-hover");
 
             adj_tbl();
 
             div_operation.show();
-            btn_tagging.prop("disabled", false);
-            btn_summary.prop("disabled", false);
-            btn_qa.prop("disabled", false);
-            btn_crawler.prop("disabled", true);
+            btn_tagging.removeClass("disabled");
+            btn_summary.removeClass("disabled");
+            btn_qa.removeClass("disabled");
+            btn_crawler.addClass("disabled");
         });
     });
 
-    frm_tagging.on("submit", function (e) {
+    btn_tagging_submit.on("click", function (e) {
         e.preventDefault();
         div_tagging_frm.hide();
 
@@ -223,14 +239,14 @@ $(document).ready(function () {
 
         $.ajax({
             url: api_host + "cdd_with_llm/fc_tagging",
-            data: $(this).serializeArray({ checkboxesAsBools: true }),
+            data: frm_tagging.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.text("Tagging for each news... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Tagging for each news... may take a few minutes")
             },
             complete: function () {
                 p_ajax.empty();
@@ -242,12 +258,16 @@ $(document).ready(function () {
                 div_search_results.empty();
             }
             div_search_results.append(html);
+            const tbl_search_results = $("#tbl_search_results");
+            tbl_search_results.removeClass();
+            tbl_search_results.removeAttr("border");
+            tbl_search_results.addClass("table table-striped table-hover");
             
             adj_tbl();
         });
     });
 
-    frm_summary.on("submit", function (e) {
+    btn_summary_submit.on("click", function (e) {
         e.preventDefault();
         div_summary_frm.hide();
         p_summary.empty();
@@ -255,14 +275,14 @@ $(document).ready(function () {
 
         $.ajax({
             url: api_host + "cdd_with_llm/summary",
-            data: $(this).serializeArray({ checkboxesAsBools: true }),
+            data: frm_summary.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("Making summary for there news... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Making summary for these news... may take a few minutes")
             },
             complete: function () {
                 p_ajax.empty();
@@ -275,7 +295,7 @@ $(document).ready(function () {
         });
     });
 
-    frm_qa.on("submit", function (e) {
+    btn_qa_submit.on("click", function (e) {
         e.preventDefault();
         div_qa_frm.hide();
         p_answer.empty();
@@ -283,14 +303,14 @@ $(document).ready(function () {
 
         $.ajax({
             url: api_host + "cdd_with_llm/qa",
-            data: $(this).serializeArray({ checkboxesAsBools: true }),
+            data: frm_qa.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("Making question-answering on these news... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Making question-answering on these news... may take a few minutes")
             },
             complete: function () {
                 p_ajax.empty();
