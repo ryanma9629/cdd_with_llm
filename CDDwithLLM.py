@@ -35,7 +35,7 @@ if not logger.handlers:
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
-
+load_dotenv()
 class CDDwithLLM:
     def __init__(
         self,
@@ -569,9 +569,6 @@ came from. Make your response in {self.language}"""
 
 
 if __name__ == "__main__":
-
-    load_dotenv()
-
     cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")

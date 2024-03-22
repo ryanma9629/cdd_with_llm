@@ -190,7 +190,7 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.text("Grabbing web conetents from each url... may take a few minutes")
+                p_ajax.html("Grabbing web conetents from each url... may take a few minutes")
             },
             complete: function () {
                 p_ajax.empty();
@@ -230,7 +230,7 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.text("Tagging for each news... may take a few minutes")
+                p_ajax.html("Tagging for each news... may take a few minutes")
             },
             complete: function () {
                 p_ajax.empty();
@@ -311,10 +311,4 @@ function txt2html(txt) {
     return html.replace(urlReg, function (url) {
         return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
     })
-}
-
-function uuidv4() {
-    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
 }
