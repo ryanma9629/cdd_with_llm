@@ -140,13 +140,17 @@ $(document).ready(function () {
         p_summary.empty();
 
         if (lang == "zh-CN") {
-            qa_query.val(company_name + "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
+            qa_query.val(company_name + 
+                "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
         } else if (lang == "zh-HK" || lang == "zh-TW") {
-            qa_query.val(company_name + "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
+            qa_query.val(company_name + 
+                "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
         } else if (lang == "ja-JP") {
-            qa_query.val(company_name + "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
+            qa_query.val(company_name + 
+                "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
         } else {
-            qa_query.val("What is the negative news about " + company_name + "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
+            qa_query.val("What is the negative news about " + company_name + 
+            "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
         }
 
         div_answer.hide();
@@ -166,7 +170,8 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Making web search... may take a few seconds")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Making web search... may take a few seconds")
             },
             complete: function () {
                 p_ajax.empty();
@@ -202,7 +207,8 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Grabbing web conetents from each url... may take some time")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Grabbing web conetents from each url... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -246,7 +252,8 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Tagging for each news... may take some time")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Tagging for each news... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -262,7 +269,7 @@ $(document).ready(function () {
             tbl_search_results.removeClass();
             tbl_search_results.removeAttr("border");
             tbl_search_results.addClass("table table-striped table-hover");
-            
+
             adj_tbl();
         });
     });
@@ -282,7 +289,8 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Making summary for these news... may take some time")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Making summary for these news... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -310,7 +318,8 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Making question-answering on these news... may take some time")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Making question-answering on these news... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -331,10 +340,4 @@ function txt2html(txt) {
     return html.replace(urlReg, function (url) {
         return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
     })
-}
-
-function uuidv4() {
-    return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
-        (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-    );
 }
