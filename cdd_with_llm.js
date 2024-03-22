@@ -166,14 +166,14 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Making web search... may take a few seconds")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Making web search... may take a few seconds")
             },
             complete: function () {
                 p_ajax.empty();
                 div_ajax.hide();
             },
         }).done(function (html) {
-            console.log(html);
+            // console.log(html);
             div_search_results.append(html);
             const tbl_search_results = $("#tbl_search_results");
             tbl_search_results.removeClass();
@@ -202,7 +202,7 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Grabbing web conetents from each url... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Grabbing web conetents from each url... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -246,7 +246,7 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Tagging for each news... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Tagging for each news... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -282,7 +282,7 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Making summary for these news... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Making summary for these news... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
@@ -310,7 +310,7 @@ $(document).ready(function () {
             },
             beforeSend: function () {
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm'></span> Making question-answering on these news... may take a few minutes")
+                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> Making question-answering on these news... may take some time")
             },
             complete: function () {
                 p_ajax.empty();
