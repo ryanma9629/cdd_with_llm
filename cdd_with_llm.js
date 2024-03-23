@@ -1,8 +1,5 @@
 "use strict";
 
-const vi_deploy = false;
-const html_tags = /(<([^>]+)>)/ig;
-
 (function ($) {
     $.fn.serialize = function (options) {
         return $.param(this.serializeArray(options));
@@ -44,12 +41,23 @@ const html_tags = /(<([^>]+)>)/ig;
     };
 })(jQuery);
 
+function txt2html(txt) {
+    const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br>");
+    const urlReg = /(https?:\/\/[^\s]+)/g;
+    return html.replace(urlReg, function (url) {
+        return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
+    })
+}
+
+const vi_deploy = false;
+const html_tags = /(<([^>]+)>)/ig;
+
 $(document).ready(function () {
+    const frm_web_search = $("#frm_web_search");
+
     const div_ajax = $("#div_ajax");
-    const p_ajax = $("#p_ajax");
 
     const div_search_results = $("#div_search_results");
-    const frm_web_search = $("#frm_web_search");
 
     const div_operation = $("#div_operation");
     const btn_crawler = $("#btn_crawler");
@@ -75,11 +83,8 @@ $(document).ready(function () {
     const qa_query = $("#qa_query");
 
     const div_summary = $("#div_summary");
-    const p_summary = $("#p_summary");
 
-    const div_answer = $("#div_answer");
-    const p_question = $("#p_question");
-    const p_answer = $("#p_answer");
+    const div_qa = $("#div_qa");
 
     let api_host;
     if (vi_deploy) {
@@ -88,7 +93,6 @@ $(document).ready(function () {
     } else {
         api_host = "http://localhost:8000/";
     }
-
 
     function adj_tbl() {
         div_search_results.find("table tbody tr td:nth-child(1)").each(function () {
@@ -124,37 +128,29 @@ $(document).ready(function () {
         const lang = $("#lang").val();
 
         div_search_results.hide();
-        if (div_search_results.length) {
-            div_search_results.empty();
-        }
+        div_search_results.empty();
 
         div_operation.hide();
-        // btn_tagging.prop("disabled", true);
-        // btn_summary.prop("disabled", true);
-        // btn_qa.prop("disabled", true);
-        // btn_tagging.addClass("disabled");
-        // btn_summary.addClass("disabled");
-        // btn_qa.addClass("disabled");
 
         div_summary.hide();
-        p_summary.empty();
+        div_summary.empty();
+
+        div_qa.hide();
+        div_qa.empty();
 
         if (lang == "zh-CN") {
-            qa_query.val(company_name + 
+            qa_query.val(company_name +
                 "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
         } else if (lang == "zh-HK" || lang == "zh-TW") {
-            qa_query.val(company_name + 
+            qa_query.val(company_name +
                 "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
         } else if (lang == "ja-JP") {
-            qa_query.val(company_name + 
+            qa_query.val(company_name +
                 "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
         } else {
-            qa_query.val("What is the negative news about " + company_name + 
-            "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
+            qa_query.val("What is the negative news about " + company_name +
+                "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
         }
-
-        div_answer.hide();
-        p_answer.empty();
 
         const form_data = $(this).serializeArray();
         if (vi_deploy) {
@@ -169,27 +165,24 @@ $(document).ready(function () {
                 withCredentials: true
             },
             beforeSend: function () {
+                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Making web search... may take some time");
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
-                Making web search... may take a few seconds")
             },
             complete: function () {
-                p_ajax.empty();
                 div_ajax.hide();
+                div_ajax.empty();
             },
         }).done(function (html) {
-            // console.log(html);
-            div_search_results.append(html);
+            div_search_results.html(html);
             const tbl_search_results = $("#tbl_search_results");
             tbl_search_results.removeClass();
             tbl_search_results.removeAttr("border");
             tbl_search_results.addClass("table table-striped table-hover");
-
             adj_tbl();
-
             div_search_results.show();
+
             div_operation.show();
-            // btn_crawler.prop("disabled", false);
             btn_crawler.removeClass("disabled");
         });
     });
@@ -206,28 +199,25 @@ $(document).ready(function () {
                 withCredentials: true
             },
             beforeSend: function () {
+                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Grabbing web conetents from each url... may take some time");
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
-                Grabbing web conetents from each url... may take some time")
             },
             complete: function () {
-                p_ajax.empty();
                 div_ajax.hide();
+                div_ajax.empty();
             },
         }).done(function (html) {
-            // console.log(html);
-            if (div_search_results.length) {
-                div_search_results.empty();
-            }
-            div_search_results.append(html);
+            div_search_results.hide();
+            div_search_results.empty();
+            div_search_results.html(html);
             const tbl_search_results = $("#tbl_search_results");
             tbl_search_results.removeClass();
             tbl_search_results.removeAttr("border");
             tbl_search_results.addClass("table table-striped table-hover");
-
             adj_tbl();
+            div_search_results.show();
 
-            div_operation.show();
             btn_tagging.removeClass("disabled");
             btn_summary.removeClass("disabled");
             btn_qa.removeClass("disabled");
@@ -251,34 +241,32 @@ $(document).ready(function () {
                 withCredentials: true
             },
             beforeSend: function () {
+                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Tagging for each news... may take some time");
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
-                Tagging for each news... may take some time")
             },
             complete: function () {
-                p_ajax.empty();
                 div_ajax.hide();
+                div_ajax.empty();
             },
         }).done(function (html) {
-            // console.log(html);
-            if (div_search_results.length) {
-                div_search_results.empty();
-            }
-            div_search_results.append(html);
+            div_search_results.hide();
+            div_search_results.empty();
+            div_search_results.html(html);
             const tbl_search_results = $("#tbl_search_results");
             tbl_search_results.removeClass();
             tbl_search_results.removeAttr("border");
             tbl_search_results.addClass("table table-striped table-hover");
-
             adj_tbl();
+            div_search_results.show();
         });
     });
 
     btn_summary_submit.on("click", function (e) {
         e.preventDefault();
         div_summary_frm.hide();
-        p_summary.empty();
         div_summary.hide();
+        div_summary.empty();
 
         $.ajax({
             url: api_host + "cdd_with_llm/summary",
@@ -288,26 +276,24 @@ $(document).ready(function () {
                 withCredentials: true
             },
             beforeSend: function () {
+                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Making summary for these news... may take some time");
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
-                Making summary for these news... may take some time")
             },
             complete: function () {
-                p_ajax.empty();
                 div_ajax.hide();
+                div_ajax.empty();
             },
         }).done(function (txt) {
-            // console.log(txt);
+            div_summary.html("<strong>Summary:</strong> <br>");
+            div_summary.append(txt2html(txt));
             div_summary.show();
-            p_summary.html(txt2html(txt));
         });
     });
 
     btn_qa_submit.on("click", function (e) {
         e.preventDefault();
         div_qa_frm.hide();
-        p_answer.empty();
-        div_answer.hide();
 
         $.ajax({
             url: api_host + "cdd_with_llm/qa",
@@ -317,27 +303,22 @@ $(document).ready(function () {
                 withCredentials: true
             },
             beforeSend: function () {
+                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                Making question-answering on these news... may take some time");
                 div_ajax.show();
-                p_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
-                Making question-answering on these news... may take some time")
             },
             complete: function () {
-                p_ajax.empty();
                 div_ajax.hide();
+                div_ajax.empty();
             },
         }).done(function (txt) {
-            // console.log(txt);
-            div_answer.show();
-            p_question.text(qa_query.val());
-            p_answer.html(txt2html(txt));
+            div_qa.append("<strong>Question:</strong> <br>");
+            div_qa.append(qa_query.val());
+            div_qa.append("<br>");
+            div_qa.append("<strong>Answer:<strong> <br>");
+            div_qa.append(txt2html(txt));
+            div_qa.append("<br><br>");
+            div_qa.show();
         });
     });
 });
-
-function txt2html(txt) {
-    const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br><br>");
-    const urlReg = /(https?:\/\/[^\s]+)/g;
-    return html.replace(urlReg, function (url) {
-        return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
-    })
-}
