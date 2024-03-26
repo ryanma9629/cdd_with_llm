@@ -41,7 +41,7 @@
     };
 })(jQuery);
 
-function txt2html(txt) {
+function addLink(txt) {
     const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br>");
     const rURL = /(https?:\/\/[^\s]+)/g;
     return html.replace(rURL, function (url) {
@@ -49,68 +49,62 @@ function txt2html(txt) {
     })
 }
 
-const vi_deploy = false;
-const html_tags = /(<([^>]+)>)/ig;
+const viDeploy = false;
+
 
 $(document).ready(function () {
-    const div_ajax = $("#div_ajax");
+    const divAjaxInfo = $("#div_ajax_info");
 
-    const frm_web_search = $("#frm_web_search");
-    const div_search_results = $("#div_search_results");
+    const frmWebSearch = $("#frm_web_search");
+    const divSearchRes = $("#div_search_res");
 
-    const div_operation = $("#div_operation");
-    const btn_crawler = $("#btn_crawler");
-    const btn_tagging = $("#btn_tagging");
-    const btn_summary = $("#btn_summary");
-    const btn_qa = $("#btn_qa");
+    const divOper = $("#div_operation");
+    const btnCrawler = $("#btn_crawler");
+    const btnTagging = $("#btn_tagging");
+    const btnSummary = $("#btn_summary");
+    const btnQA = $("#btn_qa");
 
-    const div_crawler_frm = $("#div_crawler_frm");
-    const frm_cralwer = $("#frm_crawler");
-    const btn_crawler_submit = $("#btn_crawler_submit");
+    const frmCrawler = $("#frm_crawler");
+    const btnCrawlerSubmit = $("#btn_crawler_submit");
 
-    const div_tagging_frm = $("#div_tagging_frm");
-    const frm_tagging = $("#frm_tagging");
-    const btn_tagging_submit = $("#btn_tagging_submit");
+    const frmTagging = $("#frm_tagging");
+    const btnTaggingSubmit = $("#btn_tagging_submit");
 
-    const div_summary_frm = $("#div_summary_frm");
-    const frm_summary = $("#frm_summary");
-    const btn_summary_submit = $("#btn_summary_submit");
-    const div_summary = $("#div_summary");
+    const frmSummary = $("#frm_summary");
+    const btnSummarySubmit = $("#btn_summary_submit");
+    const divSummaryRes = $("#div_summary_res");
 
-    const div_qa_frm = $("#div_qa_frm");
-    const frm_qa = $("#frm_qa");
-    const qa_query = $("#qa_query");
-    const btn_qa_submit = $("#btn_qa_submit");
-    const div_qa = $("#div_qa");
+    const frmQA = $("#frm_qa");
+    const taQAQuery = $("#ta_qa_query");
+    const btnQASubmit = $("#btn_qa_submit");
+    const divQARes = $("#div_qa_res");
 
-    let api_host;
-    if (vi_deploy) {
+    let apiHost;
+    if (viDeploy) {
         $(".vi_deploy").remove();
-        api_host = "https://tf02:8000/";
+        apiHost = "https://tf02:8000/";
     } else {
-        api_host = "http://localhost:8000/";
+        apiHost = "http://localhost:8000/";
     }
 
-    function adj_tbl() {
-        const tbl_search_results = $("#tbl_search_results");
-        tbl_search_results.removeClass();
-        tbl_search_results.removeAttr("border");
-        tbl_search_results.addClass("table table-striped table-hover");
+    function adjResTable() {
+        const tblSearchRes = $("#tbl_search_res");
 
-        tbl_search_results.find("tbody tr td:nth-child(1)").each(function () {
-            const long_url = $(this).text();
-            const short_url = (new URL(long_url)).hostname;
-            $(this).html("<a href='" + long_url + "' target='_blank'>" + short_url + "</a>");
+        tblSearchRes.removeClass();
+        tblSearchRes.removeAttr("border");
+        tblSearchRes.addClass("table table-striped table-hover");
+
+        tblSearchRes.find("tbody tr td:nth-child(1)").each(function () {
+            $(this).html("<a href='" + $(this).text() + "' target='_blank'>" + 
+            (new URL($(this).text())).hostname + "</a>");
 
         });
-        tbl_search_results.find("tbody tr td:nth-child(2)").each(function () {
-            const text_with_tags = $(this).text();
-            const text_wo_tags = text_with_tags.replace(html_tags, "");
-            $(this).text(text_wo_tags);
+        tblSearchRes.find("tbody tr td:nth-child(2)").each(function () {
+            const htmlTags = /(<([^>]+)>)/ig;
+            $(this).text($(this).text().replace(htmlTags, ""));
         });
-        tbl_search_results.find("tbody tr td:nth-child(3)").each(function () {
-            const cell_text = $(this).text();
-            if (cell_text == "True") {
+        tblSearchRes.find("tbody tr td:nth-child(3)").each(function () {
+            if ($(this).text() == "True") {
                 $(this).html("&#10004;");
             } else {
                 $(this).html("&#10006;");
@@ -118,197 +112,190 @@ $(document).ready(function () {
         });
     }
 
-    frm_web_search.on("submit", function (e) {
+    frmWebSearch.on("submit", function (e) {
         e.preventDefault();
 
-        let company_name;
-        if (vi_deploy) {
-            company_name = new URLSearchParams(window.location.search).get("company_name");
+        let compnanyName;
+        if (viDeploy) {
+            compnanyName = new URLSearchParams(window.location.search).get("company_name");
         } else {
-            company_name = $("#company_name").val();
+            compnanyName = $("#company_name").val();
         }
         const lang = $("#lang").val();
 
-        div_search_results.hide();
-        div_search_results.empty();
+        divSearchRes.hide();
+        divSearchRes.empty();
 
-        div_operation.hide();
+        divOper.hide();
 
-        div_summary.hide();
-        div_summary.empty();
+        divSummaryRes.hide();
+        divSummaryRes.empty();
 
-        div_qa.hide();
-        div_qa.empty();
+        divQARes.hide();
+        divQARes.empty();
 
         if (lang == "zh-CN") {
-            qa_query.val(company_name +
+            taQAQuery.val(compnanyName +
                 "有哪些负面新闻？总结不超过3条主要的，每条独立一行列出，并给出信息出处的URL");
         } else if (lang == "zh-HK" || lang == "zh-TW") {
-            qa_query.val(company_name +
+            taQAQuery.val(compnanyName +
                 "有哪些負面新聞？總結不超過3條主要的，每條獨立一行列出，並給出資訊出處的URL");
         } else if (lang == "ja-JP") {
-            qa_query.val(company_name +
+            taQAQuery.val(compnanyName +
                 "に関するネガティブなニュースをサーチしなさい。一番大事なものを三つ以内にまとめ、それぞれを箇条書きし、出典元URLを付けなさい");
         } else {
-            qa_query.val("What is the negative news about " + company_name +
+            taQAQuery.val("What is the negative news about " + compnanyName +
                 "? Summarize no more than 3 major ones, list each on a separate line, and give the URL where the information came from.");
         }
 
-        const form_data = $(this).serializeArray();
-        if (vi_deploy) {
-            form_data.push({ "name": "company_name", "value": company_name });
+        const frmData = $(this).serializeArray();
+        if (viDeploy) {
+            frmData.push({ "name": "company_name", "value": compnanyName });
         }
 
         $.ajax({
-            url: api_host + "cdd_with_llm/web_search",
-            data: form_data,
+            url: apiHost + "cdd_with_llm/web_search",
+            data: frmData,
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
-                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                divAjaxInfo.html("<span class='spinner-border spinner-border-sm me-2'></span> \
                 Making web search... may take some time");
-                div_ajax.show();
+                divAjaxInfo.show();
             },
             complete: function () {
-                div_ajax.hide();
-                div_ajax.empty();
+                divAjaxInfo.hide();
+                divAjaxInfo.empty();
             },
         }).done(function (html) {
-            div_search_results.html(html);
-            adj_tbl();
-            div_search_results.show();
+            divSearchRes.html(html);
+            adjResTable();
+            divSearchRes.show();
 
-            div_operation.show();
-            btn_crawler.removeClass("disabled");
+            divOper.show();
+            btnCrawler.removeClass("disabled");
         });
     });
 
-    btn_crawler_submit.on("click", function (e) {
+    btnCrawlerSubmit.on("click", function (e) {
         e.preventDefault();
-        div_crawler_frm.hide();
+        // divSearchRes.hide();
+        // divSearchRes.empty();
 
         $.ajax({
-            url: api_host + "cdd_with_llm/contents_from_crawler",
-            data: frm_cralwer.serializeArray({ checkboxesAsBools: true }),
+            url: apiHost + "cdd_with_llm/contents_from_crawler",
+            data: frmCrawler.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
-                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                divAjaxInfo.html("<span class='spinner-border spinner-border-sm me-2'></span> \
                 Grabbing web conetents from each url... may take some time");
-                div_ajax.show();
+                divAjaxInfo.show();
             },
             complete: function () {
-                div_ajax.hide();
-                div_ajax.empty();
+                divAjaxInfo.hide();
+                divAjaxInfo.empty();
             },
         }).done(function (html) {
-            div_search_results.hide();
-            div_search_results.empty();
-            div_search_results.html(html);
-            adj_tbl();
-            div_search_results.show();
+            divSearchRes.html(html);
+            adjResTable();
+            divSearchRes.show();
 
-            btn_tagging.removeClass("disabled");
-            btn_summary.removeClass("disabled");
-            btn_qa.removeClass("disabled");
-            btn_crawler.addClass("disabled");
+            btnTagging.removeClass("disabled");
+            btnSummary.removeClass("disabled");
+            btnQA.removeClass("disabled");
+            btnCrawler.addClass("disabled");
         });
     });
 
-    btn_tagging_submit.on("click", function (e) {
+    btnTaggingSubmit.on("click", function (e) {
         e.preventDefault();
-        div_tagging_frm.hide();
 
-        if ($("#tbl_search_results tr th").length == 5) {
-            $("#tbl_search_results td:nth-child(4),th:nth-child(4),td:nth-child(5),th:nth-child(5)").remove();
+        if ($("#tbl_search_res tr th").length == 5) {
+            $("#tbl_search_res td:nth-child(4),th:nth-child(4),td:nth-child(5),th:nth-child(5)").remove();
         }
 
         $.ajax({
-            url: api_host + "cdd_with_llm/fc_tagging",
-            data: frm_tagging.serializeArray({ checkboxesAsBools: true }),
+            url: apiHost + "cdd_with_llm/fc_tagging",
+            data: frmTagging.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
-                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                divAjaxInfo.html("<span class='spinner-border spinner-border-sm me-2'></span> \
                 Tagging for each news... may take some time");
-                div_ajax.show();
+                divAjaxInfo.show();
             },
             complete: function () {
-                div_ajax.hide();
-                div_ajax.empty();
+                divAjaxInfo.hide();
+                divAjaxInfo.empty();
             },
         }).done(function (html) {
-            div_search_results.hide();
-            div_search_results.empty();
-            div_search_results.html(html);
-            adj_tbl();
-            div_search_results.show();
+            divSearchRes.html(html);
+            adjResTable();
         });
     });
 
-    btn_summary_submit.on("click", function (e) {
+    btnSummarySubmit.on("click", function (e) {
         e.preventDefault();
-        div_summary_frm.hide();
-        div_summary.hide();
-        div_summary.empty();
+        divSummaryRes.hide();
+        divSummaryRes.empty();
 
         $.ajax({
-            url: api_host + "cdd_with_llm/summary",
-            data: frm_summary.serializeArray({ checkboxesAsBools: true }),
+            url: apiHost + "cdd_with_llm/summary",
+            data: frmSummary.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
-                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                divAjaxInfo.html("<span class='spinner-border spinner-border-sm me-2'></span> \
                 Making summary for these news... may take some time");
-                div_ajax.show();
+                divAjaxInfo.show();
             },
             complete: function () {
-                div_ajax.hide();
-                div_ajax.empty();
+                divAjaxInfo.hide();
+                divAjaxInfo.empty();
             },
         }).done(function (txt) {
-            div_summary.html("<strong>Summary:</strong> <br>");
-            div_summary.append(txt2html(txt));
-            div_summary.show();
+            divSummaryRes.html("<strong>Summary:</strong> <br>");
+            divSummaryRes.append(addLink(txt));
+            divSummaryRes.show();
         });
     });
 
-    btn_qa_submit.on("click", function (e) {
+    btnQASubmit.on("click", function (e) {
         e.preventDefault();
-        div_qa_frm.hide();
 
         $.ajax({
-            url: api_host + "cdd_with_llm/qa",
-            data: frm_qa.serializeArray({ checkboxesAsBools: true }),
+            url: apiHost + "cdd_with_llm/qa",
+            data: frmQA.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {
                 withCredentials: true
             },
             beforeSend: function () {
-                div_ajax.html("<span class='spinner-border spinner-border-sm me-2'></span> \
+                divAjaxInfo.html("<span class='spinner-border spinner-border-sm me-2'></span> \
                 Making question-answering on these news... may take some time");
-                div_ajax.show();
+                divAjaxInfo.show();
             },
             complete: function () {
-                div_ajax.hide();
-                div_ajax.empty();
+                divAjaxInfo.hide();
+                divAjaxInfo.empty();
             },
         }).done(function (txt) {
-            div_qa.append("<strong>Question:</strong> <br>");
-            div_qa.append(document.createTextNode(qa_query.val()));
-            div_qa.append("<br>");
-            div_qa.append("<strong>Answer:<strong> <br>");
-            div_qa.append(txt2html(txt));
-            div_qa.append("<br><br>");
-            div_qa.show();
+            divQARes.append("<strong>Question:</strong> <br>");
+            divQARes.append(document.createTextNode(taQAQuery.val()));
+            divQARes.append("<br>");
+            divQARes.append("<strong>Answer:<strong> <br>");
+            divQARes.append(addLink(txt));
+            divQARes.append("<br><br>");
+            divQARes.show();
         });
     });
 });
