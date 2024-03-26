@@ -313,7 +313,7 @@ $(document).ready(function () {
             },
         }).done(function (txt) {
             div_qa.append("<strong>Question:</strong> <br>");
-            div_qa.append(qa_query.val());
+            div_qa.append(document.createTextNode(qa_query.val()));
             div_qa.append("<br>");
             div_qa.append("<strong>Answer:<strong> <br>");
             div_qa.append(txt2html(txt));

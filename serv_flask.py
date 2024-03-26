@@ -19,7 +19,7 @@ app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "None"
 app.secret_key = "192b9bdd22ab9ed4dc15f71bbf5dc987d54727823bcbf"
 app.config["SESSION_TYPE"] = "mongodb"
-app.config["SESSION_MONGODB"] = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+app.config["SESSION_MONGODB"] = pymongo.MongoClient(os.getenv("MONGO_URI"))
 
 server_session = Session(app)
 

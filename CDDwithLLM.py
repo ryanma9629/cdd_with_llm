@@ -103,7 +103,7 @@ class CDDwithLLM:
                             collection: str = "web_contents",
                             ) -> List[Dict]:
         logger.info("Loading existing web contents from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
 
         within_date = datetime.combine(
@@ -147,7 +147,7 @@ class CDDwithLLM:
                           collection: str = "web_contents",
                           ) -> None:
         logger.info("Saving web contents to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
 
         for item in web_contents:
@@ -223,7 +223,7 @@ class CDDwithLLM:
                         collection: str = "tags",
                         ) -> List[Dict]:
         logger.info("Loading existing tags from MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
 
         within_date = datetime.combine(
@@ -262,7 +262,7 @@ class CDDwithLLM:
                       collection: str = "tags",
                       ) -> None:
         logger.info("Saving tags to MongoDB...")
-        client = pymongo.MongoClient(os.getenv("MONGODB_URI"))
+        client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
 
         for item in tags:
