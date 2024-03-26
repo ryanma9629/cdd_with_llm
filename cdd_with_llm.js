@@ -43,8 +43,8 @@
 
 function txt2html(txt) {
     const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br>");
-    const urlReg = /(https?:\/\/[^\s]+)/g;
-    return html.replace(urlReg, function (url) {
+    const rURL = /(https?:\/\/[^\s]+)/g;
+    return html.replace(rURL, function (url) {
         return "<a href=\"" + url + "\" target=\"_blank\">" + url + "</a>";
     })
 }
@@ -53,10 +53,9 @@ const vi_deploy = false;
 const html_tags = /(<([^>]+)>)/ig;
 
 $(document).ready(function () {
-    const frm_web_search = $("#frm_web_search");
-
     const div_ajax = $("#div_ajax");
 
+    const frm_web_search = $("#frm_web_search");
     const div_search_results = $("#div_search_results");
 
     const div_operation = $("#div_operation");
@@ -64,26 +63,24 @@ $(document).ready(function () {
     const btn_tagging = $("#btn_tagging");
     const btn_summary = $("#btn_summary");
     const btn_qa = $("#btn_qa");
-    const btn_crawler_submit = $("#btn_crawler_submit");
-    const btn_tagging_submit = $("#btn_tagging_submit");
-    const btn_summary_submit = $("#btn_summary_submit");
-    const btn_qa_submit = $("#btn_qa_submit");
 
     const div_crawler_frm = $("#div_crawler_frm");
     const frm_cralwer = $("#frm_crawler");
+    const btn_crawler_submit = $("#btn_crawler_submit");
 
     const div_tagging_frm = $("#div_tagging_frm");
     const frm_tagging = $("#frm_tagging");
+    const btn_tagging_submit = $("#btn_tagging_submit");
 
     const div_summary_frm = $("#div_summary_frm");
     const frm_summary = $("#frm_summary");
+    const btn_summary_submit = $("#btn_summary_submit");
+    const div_summary = $("#div_summary");
 
     const div_qa_frm = $("#div_qa_frm");
     const frm_qa = $("#frm_qa");
     const qa_query = $("#qa_query");
-
-    const div_summary = $("#div_summary");
-
+    const btn_qa_submit = $("#btn_qa_submit");
     const div_qa = $("#div_qa");
 
     let api_host;
@@ -95,18 +92,23 @@ $(document).ready(function () {
     }
 
     function adj_tbl() {
-        div_search_results.find("table tbody tr td:nth-child(1)").each(function () {
+        const tbl_search_results = $("#tbl_search_results");
+        tbl_search_results.removeClass();
+        tbl_search_results.removeAttr("border");
+        tbl_search_results.addClass("table table-striped table-hover");
+
+        tbl_search_results.find("tbody tr td:nth-child(1)").each(function () {
             const long_url = $(this).text();
             const short_url = (new URL(long_url)).hostname;
             $(this).html("<a href='" + long_url + "' target='_blank'>" + short_url + "</a>");
 
         });
-        div_search_results.find("table tbody tr td:nth-child(2)").each(function () {
+        tbl_search_results.find("tbody tr td:nth-child(2)").each(function () {
             const text_with_tags = $(this).text();
             const text_wo_tags = text_with_tags.replace(html_tags, "");
             $(this).text(text_wo_tags);
         });
-        div_search_results.find("table tbody tr td:nth-child(3)").each(function () {
+        tbl_search_results.find("tbody tr td:nth-child(3)").each(function () {
             const cell_text = $(this).text();
             if (cell_text == "True") {
                 $(this).html("&#10004;");
@@ -175,10 +177,6 @@ $(document).ready(function () {
             },
         }).done(function (html) {
             div_search_results.html(html);
-            const tbl_search_results = $("#tbl_search_results");
-            tbl_search_results.removeClass();
-            tbl_search_results.removeAttr("border");
-            tbl_search_results.addClass("table table-striped table-hover");
             adj_tbl();
             div_search_results.show();
 
@@ -211,10 +209,6 @@ $(document).ready(function () {
             div_search_results.hide();
             div_search_results.empty();
             div_search_results.html(html);
-            const tbl_search_results = $("#tbl_search_results");
-            tbl_search_results.removeClass();
-            tbl_search_results.removeAttr("border");
-            tbl_search_results.addClass("table table-striped table-hover");
             adj_tbl();
             div_search_results.show();
 
@@ -253,10 +247,6 @@ $(document).ready(function () {
             div_search_results.hide();
             div_search_results.empty();
             div_search_results.html(html);
-            const tbl_search_results = $("#tbl_search_results");
-            tbl_search_results.removeClass();
-            tbl_search_results.removeAttr("border");
-            tbl_search_results.addClass("table table-striped table-hover");
             adj_tbl();
             div_search_results.show();
         });
