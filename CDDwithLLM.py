@@ -414,7 +414,7 @@ class CDDwithLLM:
                 chunk_size: int = 2000,
                 chunk_overlap: int = 100,
                 clus_docs: bool = True,
-                num_clus: int = 5,
+                num_clus: int = 2,
                 llm_model: str = "GPT4") -> str:
         if llm_model == "GPT4":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
@@ -580,14 +580,14 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
 
-    cdd.web_search()
+    cdd.web_search(search_engine="Google")
     cdd.contents_from_crawler()
 
-    tags = cdd.fc_tagging()
-    pprint.pprint(tags)
+    # tags = cdd.fc_tagging()
+    # pprint.pprint(tags)
 
-    summary = cdd.summary()
-    pprint.pprint(summary)
+    # summary = cdd.summary()
+    # pprint.pprint(summary)
 
-    qa = cdd.qa()
-    pprint.pprint(qa)
+    # qa = cdd.qa()
+    # pprint.pprint(qa)

@@ -95,10 +95,10 @@ def summary():
     chunk_size = int(request.args.get("summary_chunk_size"))
     llm_model = request.args.get("summary_llm_model")
 
-    summ = cdd.summary(max_words=max_words, clus_docs=clus_docs, num_clus=num_clus,
+    summary = cdd.summary(max_words=max_words, clus_docs=clus_docs, num_clus=num_clus,
                        chunk_size=chunk_size, llm_model=llm_model)
 
-    return summ
+    return summary
 
 
 @app.get("/cdd_with_llm/qa")
