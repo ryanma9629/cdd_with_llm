@@ -1,16 +1,16 @@
 import os
-from dotenv import load_dotenv
+
 import jsonpickle
 import pandas as pd
 import pymongo
+from dotenv import load_dotenv
 from flask import Flask, request, session
 from flask_cors import CORS
 from flask_session import Session
+
 from CDDwithLLM import CDDwithLLM
 
 load_dotenv()
-
-VI_DEPLOY = False
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=[
@@ -118,6 +118,7 @@ def qa():
 
 
 if __name__ == "__main__":
+    VI_DEPLOY = False
     if VI_DEPLOY:
         app.run("0.0.0.0", 8000,
                 ssl_context=("tf02+1.pem", "tf02+1-key.pem"))
