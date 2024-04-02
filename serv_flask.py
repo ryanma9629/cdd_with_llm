@@ -91,7 +91,7 @@ def summary():
 
     max_words = int(request.args.get("summary_max_words"))
     clus_docs = request.args.get("summary_clus_docs") == "true"
-    num_clus = int(request.args.get("summary_num_clus", "5"))
+    num_clus = int(request.args.get("summary_num_clus", "2"))
     chunk_size = int(request.args.get("summary_chunk_size"))
     llm_model = request.args.get("summary_llm_model")
 
