@@ -97,11 +97,11 @@ class CDDwithLLM:
         self.search_results = [
             {"url": item["link"], "title": item["title"]} for item in raw_search_results]
 
-    def contents_from_mongo(self,
-                            urls: Optional[List] = None,
-                            data_within_days: int = 0,
-                            collection: str = "web_contents",
-                            ) -> List[Dict]:
+    def contents_load(self,
+                      urls: Optional[List] = None,
+                      data_within_days: int = 0,
+                      collection: str = "web_contents",
+                      ) -> List[Dict]:
         logger.info("Loading existing web contents from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
@@ -142,10 +142,10 @@ class CDDwithLLM:
             f"{len(web_contents)} existing web contents is/are loaded from MongoDB.")
         return web_contents
 
-    def contents_to_mongo(self,
-                          web_contents: List[Dict],
-                          collection: str = "web_contents",
-                          ) -> None:
+    def contents_save(self,
+                      web_contents: List[Dict],
+                      collection: str = "web_contents",
+                      ) -> None:
         logger.info("Saving web contents to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
@@ -167,17 +167,17 @@ class CDDwithLLM:
             )
         client.close()
 
-    def contents_from_crawler(self,
-                              min_content_length: int = 100,
-                              contents_load: bool = True,
-                              contents_save: bool = True,) -> None:
+    def contents_crawler(self,
+                         min_content_length: int = 100,
+                         contents_load: bool = True,
+                         contents_save: bool = True,) -> None:
         logger.info(
             f"Grabbing web contents with Apify/website-content-crawler...")
 
         urls = [item["url"] for item in self.search_results]
         web_contents = []
         if contents_load:
-            contents_loaded = self.contents_from_mongo(urls)
+            contents_loaded = self.contents_load(urls)
             if contents_loaded:
                 urls_loaded = [item["url"] for item in contents_loaded]
                 urls_tofetch = list(set(urls) - set(urls_loaded))
@@ -207,21 +207,21 @@ class CDDwithLLM:
                             for item in apify_dataset if item["crawl"]
                             ["httpStatusCode"] == 200 and len(item["text"]) >= min_content_length]
             if contents_save:
-                self.contents_to_mongo(web_contents)
+                self.contents_save(web_contents)
 
         if contents_load:
             web_contents.extend(contents_loaded)
 
         self.web_contents = web_contents
 
-    def tags_from_mongo(self,
-                        urls: List[Dict],
-                        strategy: str,
-                        chunk_size: int,
-                        llm_model: str,
-                        data_within_days: int = 0,
-                        collection: str = "tags",
-                        ) -> List[Dict]:
+    def tags_load(self,
+                  urls: List[Dict],
+                  strategy: str,
+                  chunk_size: int,
+                  llm_model: str,
+                  data_within_days: int = 0,
+                  collection: str = "tags",
+                  ) -> List[Dict]:
         logger.info("Loading existing tags from MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
@@ -254,13 +254,13 @@ class CDDwithLLM:
         logger.info(f"{len(tags)} existing tags is/are loaded from MongoDB.")
         return tags
 
-    def tags_to_mongo(self,
-                      tags: List[Dict],
-                      strategy: str,
-                      chunk_size: int,
-                      llm_model: str,
-                      collection: str = "tags",
-                      ) -> None:
+    def tags_save(self,
+                  tags: List[Dict],
+                  strategy: str,
+                  chunk_size: int,
+                  llm_model: str,
+                  collection: str = "tags",
+                  ) -> None:
         logger.info("Saving tags to MongoDB...")
         client = pymongo.MongoClient(os.getenv("MONGO_URI"))
         col = client.cdd_with_llm[collection]
@@ -340,7 +340,7 @@ class CDDwithLLM:
 
         urls = [item["url"] for item in self.search_results]
         if tags_load:
-            tags_loaded = self.tags_from_mongo(
+            tags_loaded = self.tags_load(
                 urls, strategy, chunk_size, llm_model)
             if tags_loaded:
                 urls_loaded = [item["url"] for item in tags_loaded]
@@ -403,7 +403,7 @@ class CDDwithLLM:
                 logger.info(f"{cb.total_tokens} tokens used")
 
             if tags_save and tags:
-                self.tags_to_mongo(tags, strategy, chunk_size, llm_model)
+                self.tags_save(tags, strategy, chunk_size, llm_model)
         if tags_load:
             tags.extend(tags_loaded)
 
@@ -521,7 +521,7 @@ came from. Make your response in {self.language}"""
             langchain_docs.append(
                 Document(page_content=item["text"], metadata={"source": item["url"]}))
         if with_his_data:
-            his_docs = self.contents_from_mongo(
+            his_docs = self.contents_load(
                 data_within_days=data_within_days)
             for his_doc in his_docs:
                 urls_current = [item.metadata["source"]
@@ -571,7 +571,6 @@ came from. Make your response in {self.language}"""
 
 
 if __name__ == "__main__":
-
     cdd = CDDwithLLM("红岭创投", lang="zh-CN")
     # cdd = CDDwithLLM("鸿博股份", lang="zh-CN")
     # cdd = CDDwithLLM("金融壹账通", lang="zh-CN")
@@ -580,14 +579,14 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
 
-    cdd.web_search(search_engine="Google")
-    cdd.contents_from_crawler()
+    cdd.web_search()
+    cdd.contents_crawler()
 
-    # tags = cdd.fc_tagging()
-    # pprint.pprint(tags)
+    tags = cdd.fc_tagging()
+    pprint.pprint(tags)
 
-    # summary = cdd.summary()
-    # pprint.pprint(summary)
+    summary = cdd.summary()
+    pprint.pprint(summary)
 
-    # qa = cdd.qa()
-    # pprint.pprint(qa)
+    qa = cdd.qa()
+    pprint.pprint(qa)

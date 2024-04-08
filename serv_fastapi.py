@@ -1,5 +1,6 @@
 import os
-from typing import Annotated, Dict, Literal, Optional
+from datetime import datetime, timedelta
+from typing import Annotated, Any, Dict, Literal, Optional
 from uuid import uuid4
 
 import jsonpickle
@@ -27,23 +28,30 @@ app.add_middleware(SessionMiddleware,
                    https_only=True)
 
 
-def mongo_save(session_id: str, cdd: Dict) -> None:
+def mongo_save(session_id: str,
+               data: Any,
+               session_collection: str = "sessions",
+               ttl_days: int = 14) -> None:
     client = pymongo.MongoClient(os.getenv("MONGO_URI"))
-    col = client.fastapi_session["sessions"]
+    col = client.fastapi_session[session_collection]
     col.update_one({"session_id": session_id},
-                   {"$set": {"session_id": session_id, "cdd": cdd}},
+                   {"$set": {"session_id": session_id,
+                             "data": jsonpickle.encode(data),
+                             "expiration": datetime.today() + timedelta(days=ttl_days)}},
                    upsert=True)
     client.close()
 
 
-def mongo_load(session_id: str) -> Optional[Dict]:
+def mongo_load(session_id: str,
+               session_collection: str = "sessions") -> Any:
     client = pymongo.MongoClient(os.getenv("MONGO_URI"))
-    col = client.fastapi_session["sessions"]
+    col = client.fastapi_session[session_collection]
     cursor = col.find({"session_id": session_id},
-                      {"_id": 0, "cdd": 1})
+                      {"_id": 0, "data": 1})
     res = list(cursor)
+    client.close()
     if res:
-        return res[0]["cdd"]
+        return jsonpickle.decode(res[0]["data"])
 
 
 @app.get("/cdd_with_llm/web_search")
@@ -58,7 +66,7 @@ def web_search(request: Request,
     cdd.web_search(search_engine=search_engine, num_results=num_results)
     session_id = uuid4().hex
     request.session["id"] = session_id
-    mongo_save(session_id, jsonpickle.encode(cdd))
+    mongo_save(session_id, cdd)
 
     df_search = pd.DataFrame(cdd.search_results).sort_values(by="url")
     return df_search.to_html(table_id="tbl_search_res",
@@ -68,17 +76,16 @@ def web_search(request: Request,
                              na_rep="NA")
 
 
-@app.get("/cdd_with_llm/contents_from_crawler")
-def contents_from_crawler(request: Request,
-                          min_content_length: Annotated[int, Query(
-                              ge=0)] = 100,
-                          contents_load: bool = True,
-                          contents_save: bool = True
-                          ) -> str:
+@app.get("/cdd_with_llm/contents_crawler")
+def contents_crawler(request: Request,
+                     min_content_length: Annotated[int, Query(ge=0)] = 100,
+                     contents_load: bool = True,
+                     contents_save: bool = True
+                     ) -> str:
     session_id = request.session["id"]
-    cdd = jsonpickle.decode(mongo_load(session_id))
-    cdd.contents_from_crawler(min_content_length, contents_load, contents_save)
-    mongo_save(session_id, jsonpickle.encode(cdd))
+    cdd = mongo_load(session_id)
+    cdd.contents_crawler(min_content_length, contents_load, contents_save)
+    mongo_save(session_id, cdd)
 
     df_search_results = pd.DataFrame(cdd.search_results)
     df_contents = pd.DataFrame(cdd.web_contents)
@@ -104,7 +111,7 @@ def fc_tagging(request: Request,
                tags_save: bool = True,
                ) -> str:
     session_id = request.session["id"]
-    cdd = jsonpickle.decode(mongo_load(session_id))
+    cdd = mongo_load(session_id)
 
     tags = cdd.fc_tagging(strategy=tagging_strategy,
                           chunk_size=tagging_chunk_size,
@@ -134,10 +141,10 @@ def summary(request: Request,
             summary_clus_docs: bool = True,
             summary_chunk_size: Annotated[int, Query(gt=0)] = 2000,
             summary_llm_model: Literal["GPT35", "GPT4", "GPT4-32k"] = "GPT4",
-            summary_num_clus: Annotated[Optional[int], Query(ge=2)] = 2
+            summary_num_clus: Annotated[int, Query(ge=2)] = 2
             ) -> str:
     session_id = request.session["id"]
-    cdd = jsonpickle.decode(mongo_load(session_id))
+    cdd = mongo_load(session_id)
 
     summary = cdd.summary(max_words=summary_max_words,
                           clus_docs=summary_clus_docs,
@@ -152,12 +159,12 @@ def summary(request: Request,
 def qa(request: Request,
        ta_qa_query: Annotated[str, Query(min_length=1)],
        with_his_data: bool = False,
-       data_within_days: Annotated[Optional[int], Query(ge=0)] = 90,
+       data_within_days: Annotated[int, Query(ge=0)] = 90,
        qa_chunk_size: Annotated[int, Query(gt=0)] = 2000,
        qa_llm_model: Literal["GPT35", "GPT4", "GPT4-32k"] = "GPT4"
        ) -> str:
     session_id = request.session["id"]
-    cdd = jsonpickle.decode(mongo_load(session_id))
+    cdd = mongo_load(session_id)
 
     answer = cdd.qa(query=ta_qa_query,
                     with_his_data=with_his_data,
@@ -172,8 +179,8 @@ if __name__ == '__main__':
     VI_DEPLOY = False
 
     if VI_DEPLOY:
-        uvicorn.run('serv_fastapi:app',
-                    host="0.0.0.0", port=8000,
-                    ssl_keyfile="tf02+1-key.pem", ssl_certfile="tf02+1.pem")
+        uvicorn.run('serv_fastapi:app', host="0.0.0.0", port=8000,
+                    ssl_keyfile="tf02+1-key.pem",
+                    ssl_certfile="tf02+1.pem")
     else:
         uvicorn.run('serv_fastapi:app', port=8000, reload=True)

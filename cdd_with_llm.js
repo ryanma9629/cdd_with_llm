@@ -185,7 +185,7 @@ $(document).ready(function () {
         // divSearchRes.empty();
 
         $.ajax({
-            url: apiHost + "cdd_with_llm/contents_from_crawler",
+            url: apiHost + "cdd_with_llm/contents_crawler",
             data: frmCrawler.serializeArray({ checkboxesAsBools: true }),
             type: "GET",
             xhrFields: {

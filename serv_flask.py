@@ -40,14 +40,14 @@ def web_search():
     return df_search.to_html(table_id="tbl_search_res", render_links=True, index=False, justify="left", na_rep="NA")
 
 
-@app.get("/cdd_with_llm/contents_from_crawler")
-def contents_from_crawler():
+@app.get("/cdd_with_llm/contents_crawler")
+def contents_crawler():
     min_content_length = int(request.args.get("min_content_length"))
     contents_load = request.args.get("contents_load") == "true"
     contents_save = request.args.get("contents_save") == "true"
 
     cdd = jsonpickle.decode(session["cdd"])
-    cdd.contents_from_crawler(min_content_length, contents_load, contents_save)
+    cdd.contents_crawler(min_content_length, contents_load, contents_save)
     session["cdd"] = jsonpickle.encode(cdd)
 
     df_search_results = pd.DataFrame(cdd.search_results)
