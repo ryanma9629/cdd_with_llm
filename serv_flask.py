@@ -43,8 +43,8 @@ def web_search():
 @app.get("/cdd_with_llm/contents_crawler")
 def contents_crawler():
     min_content_length = int(request.args.get("min_content_length"))
-    contents_load = request.args.get("contents_load") == "true"
-    contents_save = request.args.get("contents_save") == "true"
+    contents_load = request.args.get("contents_load", "false") == "on"
+    contents_save = request.args.get("contents_save", "false") == "on"
 
     cdd = jsonpickle.decode(session["cdd"])
     cdd.contents_crawler(min_content_length, contents_load, contents_save)
@@ -67,8 +67,8 @@ def fc_tagging():
     strategy = request.args.get("tagging_strategy")
     chunk_size = int(request.args.get("tagging_chunk_size"))
     llm_model = request.args.get("tagging_llm_model")
-    tags_load = request.args.get("tags_load") == "true"
-    tags_save = request.args.get("tags_save") == "true"
+    tags_load = request.args.get("tags_load", "false") == "on"
+    tags_save = request.args.get("tags_save", "false") == "on"
 
     tags = cdd.fc_tagging(
         strategy=strategy, chunk_size=chunk_size, llm_model=llm_model, tags_load=tags_load, tags_save=tags_save)
@@ -90,7 +90,7 @@ def summary():
     cdd = jsonpickle.decode(session["cdd"])
 
     max_words = int(request.args.get("summary_max_words"))
-    clus_docs = request.args.get("summary_clus_docs") == "true"
+    clus_docs = request.args.get("summary_clus_docs", "false") == "on"
     num_clus = int(request.args.get("summary_num_clus", "2"))
     chunk_size = int(request.args.get("summary_chunk_size"))
     llm_model = request.args.get("summary_llm_model")
@@ -106,7 +106,7 @@ def qa():
     cdd = jsonpickle.decode(session["cdd"])
 
     query = request.args.get("ta_qa_query")
-    with_his_data = request.args.get("with_his_data") == "true"
+    with_his_data = request.args.get("with_his_data", "false") == "on"
     data_within_days = int(request.args.get("data_within_days", "90"))
     chunk_size = int(request.args.get("qa_chunk_size"))
     llm_model = request.args.get("qa_llm_model")
@@ -122,6 +122,5 @@ if __name__ == "__main__":
     if VI_DEPLOY:
         app.run("0.0.0.0", 8000,
                 ssl_context=("tf02+1.pem", "tf02+1-key.pem"))
-        # app.run("0.0.0.0", 8000)
     else:
         app.run("localhost", 8000, debug=True)

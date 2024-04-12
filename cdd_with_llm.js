@@ -1,46 +1,5 @@
 "use strict";
 
-(function ($) {
-    $.fn.serialize = function (options) {
-        return $.param(this.serializeArray(options));
-    };
-
-    $.fn.serializeArray = function (options) {
-        const o = $.extend({
-            checkboxesAsBools: false
-        }, options || {});
-
-        const rselectTextarea = /select|textarea/i;
-        const rinput = /text|hidden|password|search|number/i;
-
-        return this.map(function () {
-            return this.elements ? $.makeArray(this.elements) : this;
-        })
-            .filter(function () {
-                return this.name && !this.disabled &&
-                    (this.checked
-                        || (o.checkboxesAsBools && this.type === 'checkbox')
-                        || rselectTextarea.test(this.nodeName)
-                        || rinput.test(this.type));
-            })
-            .map(function (i, elem) {
-                const val = $(this).val();
-                return val == null ?
-                    null :
-                    $.isArray(val) ?
-                        $.map(val, function (val, i) {
-                            return { name: elem.name, value: val };
-                        }) :
-                        {
-                            name: elem.name,
-                            value: (o.checkboxesAsBools && this.type === 'checkbox') ?
-                                (this.checked ? true : false) :
-                                val
-                        };
-            }).get();
-    };
-})(jQuery);
-
 function addLink(txt) {
     const html = txt.replace(/(?:\r\n|\r|\n)/g, " <br>");
     const rURL = /(https?:\/\/[^\s]+)/g;
@@ -181,12 +140,10 @@ $(document).ready(function () {
 
     btnCrawlerSubmit.on("click", function (e) {
         e.preventDefault();
-        // divSearchRes.hide();
-        // divSearchRes.empty();
 
         $.ajax({
             url: apiHost + "cdd_with_llm/contents_crawler",
-            data: frmCrawler.serializeArray({ checkboxesAsBools: true }),
+            data: frmCrawler.serializeArray(),
             type: "GET",
             xhrFields: {
                 withCredentials: true
@@ -221,7 +178,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: apiHost + "cdd_with_llm/fc_tagging",
-            data: frmTagging.serializeArray({ checkboxesAsBools: true }),
+            data: frmTagging.serializeArray(),
             type: "GET",
             xhrFields: {
                 withCredentials: true
@@ -248,7 +205,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: apiHost + "cdd_with_llm/summary",
-            data: frmSummary.serializeArray({ checkboxesAsBools: true }),
+            data: frmSummary.serializeArray(),
             type: "GET",
             xhrFields: {
                 withCredentials: true
@@ -274,7 +231,7 @@ $(document).ready(function () {
 
         $.ajax({
             url: apiHost + "cdd_with_llm/qa",
-            data: frmQA.serializeArray({ checkboxesAsBools: true }),
+            data: frmQA.serializeArray(),
             type: "GET",
             xhrFields: {
                 withCredentials: true

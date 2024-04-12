@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import Annotated, Any, Dict, Literal, Optional
+from typing import Annotated, Any, Dict, Literal
 from uuid import uuid4
 
 import jsonpickle
@@ -79,8 +79,8 @@ def web_search(request: Request,
 @app.get("/cdd_with_llm/contents_crawler")
 def contents_crawler(request: Request,
                      min_content_length: Annotated[int, Query(ge=0)] = 100,
-                     contents_load: bool = True,
-                     contents_save: bool = True
+                     contents_load: bool = False,
+                     contents_save: bool = False
                      ) -> str:
     session_id = request.session["id"]
     cdd = mongo_load(session_id)
@@ -107,8 +107,8 @@ def fc_tagging(request: Request,
                tagging_chunk_size: Annotated[int, Query(gt=0)] = 2000,
                tagging_llm_model: Literal["GPT35",
                                           "GPT4", "GPT4-32k"] = "GPT4",
-               tags_load: bool = True,
-               tags_save: bool = True,
+               tags_load: bool = False,
+               tags_save: bool = False,
                ) -> str:
     session_id = request.session["id"]
     cdd = mongo_load(session_id)
@@ -138,7 +138,7 @@ def fc_tagging(request: Request,
 @app.get("/cdd_with_llm/summary")
 def summary(request: Request,
             summary_max_words: Annotated[int, Query(gt=0)] = 300,
-            summary_clus_docs: bool = True,
+            summary_clus_docs: bool = False,
             summary_chunk_size: Annotated[int, Query(gt=0)] = 2000,
             summary_llm_model: Literal["GPT35", "GPT4", "GPT4-32k"] = "GPT4",
             summary_num_clus: Annotated[int, Query(ge=2)] = 2

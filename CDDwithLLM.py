@@ -9,17 +9,18 @@ import pprint
 from datetime import datetime, timedelta
 from operator import itemgetter
 from typing import Dict, List, Optional
-from dotenv import load_dotenv
 
 import chromadb
 import pymongo
 from apify_client import ApifyClient
 from chromadb.config import Settings
+from dotenv import load_dotenv
 from langchain.chains import create_tagging_chain, load_summarize_chain
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.callbacks import get_openai_callback
-from langchain_community.document_transformers import EmbeddingsClusteringFilter
+from langchain_community.document_transformers import \
+    EmbeddingsClusteringFilter
 from langchain_community.utilities.bing_search import BingSearchAPIWrapper
 from langchain_community.utilities.google_serper import GoogleSerperAPIWrapper
 from langchain_community.vectorstores.chroma import Chroma
@@ -375,7 +376,7 @@ class CDDwithLLM:
                                 tags.append({"url": url,
                                             "type": tag["type"],
                                              "probability": tag["probability"]})
-                        else:  # strategy == "all":
+                        else:
                             p_tag_medium = {}
                             p_tag_high = {}
                             for piece in chunked_docs:
