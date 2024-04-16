@@ -60,10 +60,32 @@ def web_search(request: Request,
                lang: Literal["en-US", "zh-CN", "zh-TW",
                              "zh-HK", "ja-JP"] = "en-US",
                search_engine: Literal["Bing", "Google"] = "Bing",
+               search_suffix: Literal["negative", "crime", "everything"] = "negative",
                num_results: Annotated[int, Query(ge=1, le=50)] = 5
                ) -> str:
     cdd = CDDwithLLM(company_name, lang)
-    cdd.web_search(search_engine=search_engine, num_results=num_results)
+    if search_suffix == "negative":
+        if lang == "zh-CN":
+            suffix = "负面新闻"
+        elif lang == "zh-HK" or lang == "zh-TW":
+            suffix = "負面新聞"
+        elif lang == "ja-JP":
+            suffix = "悪い知らせ"
+        else:
+            suffix == "negative news"
+    elif search_suffix == "crime":
+        if lang == "zh-CN":
+            suffix = "涉嫌犯罪"
+        elif lang == "zh-HK" or lang == "zh-TW":
+            suffix = "涉嫌犯罪"
+        elif lang == "ja-JP":
+            suffix = "犯罪の疑いがある"
+        else:
+            suffix == "criminal suspect"
+    elif search_suffix == "everything":
+        suffix = ""
+    
+    cdd.web_search(search_suffix=suffix, search_engine=search_engine, num_results=num_results)
     session_id = uuid4().hex
     request.session["id"] = session_id
     mongo_save(session_id, cdd)
@@ -106,7 +128,7 @@ def fc_tagging(request: Request,
                tagging_strategy: Literal["first", "all"] = "all",
                tagging_chunk_size: Annotated[int, Query(gt=0)] = 2000,
                tagging_llm_model: Literal["GPT35",
-                                          "GPT4", "GPT4-32k"] = "GPT4",
+                                          "GPT4", "GPT4-32k", "ERNIE35", "ERNIE4"] = "GPT4",
                tags_load: bool = False,
                tags_save: bool = False,
                ) -> str:
@@ -140,7 +162,7 @@ def summary(request: Request,
             summary_max_words: Annotated[int, Query(gt=0)] = 300,
             summary_clus_docs: bool = False,
             summary_chunk_size: Annotated[int, Query(gt=0)] = 2000,
-            summary_llm_model: Literal["GPT35", "GPT4", "GPT4-32k"] = "GPT4",
+            summary_llm_model: Literal["GPT35", "GPT4", "GPT4-32k", "ERNIE35", "ERNIE4"] = "GPT4",
             summary_num_clus: Annotated[int, Query(ge=2)] = 2
             ) -> str:
     session_id = request.session["id"]
@@ -161,7 +183,7 @@ def qa(request: Request,
        with_his_data: bool = False,
        data_within_days: Annotated[int, Query(ge=0)] = 90,
        qa_chunk_size: Annotated[int, Query(gt=0)] = 2000,
-       qa_llm_model: Literal["GPT35", "GPT4", "GPT4-32k"] = "GPT4"
+       qa_llm_model: Literal["GPT35", "GPT4", "GPT4-32k", "ERNIE35", "ERNIE4"] = "GPT4"
        ) -> str:
     session_id = request.session["id"]
     cdd = mongo_load(session_id)

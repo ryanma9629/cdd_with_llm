@@ -27,6 +27,8 @@ from langchain_community.vectorstores.chroma import Chroma
 from langchain_core.documents.base import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
+from langchain_community.llms.baidu_qianfan_endpoint import QianfanLLMEndpoint
+from langchain_community.embeddings.baidu_qianfan_endpoint import QianfanEmbeddingsEndpoint
 
 logger = logging.getLogger()
 if not logger.handlers:
@@ -307,6 +309,10 @@ class CDDwithLLM:
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
+        elif llm_model == "ERNIE35":
+            llm = QianfanLLMEndpoint(model="ERNIE-3.5-8K", temperature=0.1)
+        elif llm_model == "ERNIE4":
+            llm = QianfanLLMEndpoint(model="ERNIE-4.0-8K", temperature=0.1)
 
         logger.info(f"Documents tagging with LLM model {llm_model}...")
         tagging_schema = {
@@ -426,9 +432,19 @@ class CDDwithLLM:
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
+        elif llm_model == "ERNIE35":
+            llm = QianfanLLMEndpoint(model="ERNIE-3.5-8K", temperature=0.1)
+        elif llm_model == "ERNIE4":
+            llm = QianfanLLMEndpoint(model="ERNIE-4.0-8K", temperature=0.1)
 
-        embedding = AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
+        if llm_model in ("GPT35", "GPT4", "GPT4-32k"):
+            embedding = AzureOpenAIEmbeddings(
+                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
+        elif llm_model in ("ERNIE35", "ERNIE4"):
+            # `prompt tokens too long` error
+            # embedding = QianfanEmbeddingsEndpoint(model = "Embedding-V1")
+            embedding = AzureOpenAIEmbeddings(
+                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
         logger.info(
             f"Documents summarization with LLM model {llm_model}...")
@@ -498,9 +514,19 @@ BULLET POINT SUMMARY:"""
         elif llm_model == "GPT4-32k":
             llm = AzureChatOpenAI(azure_deployment=os.getenv(
                 "AZURE_OPENAI_LLM_DEPLOY_GPT4_32K"), temperature=0)
+        elif llm_model == "ERNIE35":
+            llm = QianfanLLMEndpoint(model="ERNIE-3.5-8K", temperature=0.1)
+        elif llm_model == "ERNIE4":
+            llm = QianfanLLMEndpoint(model="ERNIE-4.0-8K", temperature=0.1)
 
-        embedding = AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
+        if llm_model in ("GPT35", "GPT4", "GPT4-32k"):
+            embedding = AzureOpenAIEmbeddings(
+                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
+        elif llm_model in ("ERNIE35", "ERNIE4"):
+            # `prompt tokens too long` error
+            # embedding = QianfanEmbeddingsEndpoint(model = "Embedding-V1")
+            embedding = AzureOpenAIEmbeddings(
+                azure_deployment=os.getenv("AZURE_OPENAI_EMB_DEPLOY"))
 
         logger.info(f"Documents QA with LLM model {llm_model}...")
         qa_template = f"""Use the following pieces of context to answer the question at the end. \
@@ -580,7 +606,7 @@ if __name__ == "__main__":
     # cdd = CDDwithLLM("SAS Institute", lang="en-US")
     # cdd = CDDwithLLM("红岭创投", lang="ja-JP")
 
-    cdd.web_search()
+    cdd.web_search(num_results=5)
     cdd.contents_crawler()
 
     tags = cdd.fc_tagging()
