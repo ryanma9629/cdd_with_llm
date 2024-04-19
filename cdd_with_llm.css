@@ -1,6 +1,6 @@
 body {
-    font-family: Avenir Next for SAS, Helvetica Neue, Arial Unicode MS, helvetica, arial, sans-serif !important;;
-    font-size: 12pt;
+    font-family: Avenir Next for SAS, Helvetica Neue, Arial Unicode MS, helvetica, arial, sans-serif !important;
+    font-size: 12pt !important;
 }
 
 .btn-primary {
@@ -22,6 +22,6 @@ select, input, .container {
 }
 
 .form-check-input:checked {
-    background-color: #0368B0;
-    border-color: #0368B0;
+    background-color: #0368B0 !important;
+    border-color: #0368B0 !important;
 }
