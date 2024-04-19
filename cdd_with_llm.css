@@ -1,0 +1,27 @@
+body {
+    font-family: Avenir Next for SAS, Helvetica Neue, Arial Unicode MS, helvetica, arial, sans-serif !important;;
+    font-size: 12pt;
+}
+
+.btn-primary {
+    background-color: #F5F6F7 !important;
+    color: #000000 !important;
+    border-color: #7B8799 !important;
+    border-radius: .125rem !important;
+}
+
+.btn-secondary {
+    background-color: #0368B0 !important;
+    color: #FFFFFF !important;
+    border-color: #0368B0 !important;
+    border-radius: .125rem !important;
+}
+
+select, input, .container {
+    border-radius: .125rem !important;
+}
+
+.form-check-input:checked {
+    background-color: #0368B0;
+    border-color: #0368B0;
+}
