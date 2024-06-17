@@ -81,7 +81,7 @@ def web_search(request: Request,
         elif lang == "ja-JP":
             suffix = "犯罪の疑いがある"
         else:
-            suffix == "criminal suspect"
+            suffix = "criminal suspect"
     elif search_suffix == "everything":
         suffix = ""
     
