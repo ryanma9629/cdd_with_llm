@@ -72,7 +72,7 @@ def web_search(request: Request,
         elif lang == "ja-JP":
             suffix = "悪い知らせ"
         else:
-            suffix == "negative news"
+            suffix = "negative news"
     elif search_suffix == "crime":
         if lang == "zh-CN":
             suffix = "涉嫌犯罪"
@@ -81,7 +81,7 @@ def web_search(request: Request,
         elif lang == "ja-JP":
             suffix = "犯罪の疑いがある"
         else:
-            suffix == "criminal suspect"
+            suffix = "criminal suspect"
     elif search_suffix == "everything":
         suffix = ""
     
