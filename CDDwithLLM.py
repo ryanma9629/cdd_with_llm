@@ -470,14 +470,14 @@ delimited by triple backquotes:""" + """
 
 ```{text}```
 
-CONCISE SUMMARY:"""
+Concise summary:"""
         summary_combine = f"""Write a concise summary about {self.company_name} using the following \
 text delimited by triple backquotes. Return your response in bullet points which covers the key \
 points of the text. Make your respopnse in {self.language} with no more than {max_words} words.""" + """
 
 ```{text}```
 
-BULLET POINT SUMMARY:"""
+Bullet point summary:"""
 
         map_prompt = PromptTemplate(
             template=summary_map, input_variables=["company_name", "text"])
@@ -537,10 +537,10 @@ the answer as concise as possible. Make your response in {self.language}.""" + "
 
 Question: {question}
 
-Helpful Answer:"""
+Helpful answer:"""
         qa_default_query = f"""What is the negative news about {self.company_name}? Summarize \
 no more than 3 major ones, list each on a separate line, and give the URL where the information \
-came from. Make your response in {self.language}"""
+come from. Make your response in {self.language}"""
 
         query = query or qa_default_query
         langchain_docs = []
